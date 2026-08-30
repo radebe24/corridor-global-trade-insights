@@ -9,23 +9,35 @@ import {
   setCorridorAccessToken,
 } from "@/lib/corridor/cloud-store";
 
-/* The workspace is the ported Corridor application. It needs a session before
- * it boots — an anonymous trial session is enough — because every project it
- * writes is a row scoped to that session. */
+/* The workspace is the ported Corridor application. It owns its own DOM and
+ * its own document-level listeners, so the container element is created once
+ * and re-attached on every mount rather than rebuilt — a rebuilt container
+ * would throw away everything the application has rendered into it.
+ *
+ * It needs a session before it boots. An anonymous trial session is enough:
+ * every project it saves is a row scoped to that session by row-level
+ * security, so trial work is private and can be claimed by signing up. */
+
+let container: HTMLDivElement | null = null;
+let bootPromise: Promise<void> | null = null;
+
 export function CorridorWorkspace() {
   const host = useRef<HTMLDivElement>(null);
-  const booted = useRef(false);
   const navigate = useNavigate();
   const [error, setError] = useState<string | null>(null);
-  const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    if (booted.current) return;
-    booted.current = true;
-    let cancelled = false;
+    const mount = host.current;
+    if (!mount) return;
 
-    (async () => {
-      try {
+    if (!container) {
+      container = document.createElement("div");
+      container.innerHTML = CORRIDOR_MARKUP;
+    }
+    mount.appendChild(container);
+
+    if (!bootPromise) {
+      bootPromise = (async () => {
         let { data: sessionData } = await supabase.auth.getSession();
 
         if (!sessionData.session) {
@@ -39,20 +51,19 @@ export function CorridorWorkspace() {
         setCorridorAccessToken(session.access_token);
 
         await hydrateCloudStore(session.user.id);
-        if (cancelled) return;
 
         const { bootCorridor } = await import("@/lib/corridor/app-legacy");
-        if (cancelled) return;
         bootCorridor({ navigate: (to: string) => void navigate({ to }) });
-        setReady(true);
-      } catch (err) {
+      })();
+
+      bootPromise.catch((err) => {
         console.error(err);
         setError(err instanceof Error ? err.message : "Corridor could not start.");
-      }
-    })();
+      });
+    }
 
     return () => {
-      cancelled = true;
+      if (container && container.parentNode === mount) mount.removeChild(container);
     };
   }, [navigate]);
 
@@ -79,11 +90,7 @@ export function CorridorWorkspace() {
           {error}
         </div>
       ) : null}
-      <div
-        ref={host}
-        data-corridor-ready={ready ? "true" : "false"}
-        dangerouslySetInnerHTML={{ __html: CORRIDOR_MARKUP }}
-      />
+      <div ref={host} />
     </>
   );
 }
