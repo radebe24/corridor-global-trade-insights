@@ -90,9 +90,15 @@ async function runLoop(apiKey: string, question: string, history: any[], emit: E
     });
 
     const blocks: any[] = reply.content ?? [];
+    const toolUses = blocks.filter((b) => b.type === "tool_use");
+    /* Text written on a step that still calls tools is the model thinking out
+       loud on its way somewhere. The interface renders that alongside the
+       steps; only the text of the closing step is the answer. */
+    const kind = toolUses.length ? "note" : "text";
+
     for (const block of blocks) {
       if (block.type === "text" && block.text?.trim()) {
-        emit({ type: "text", text: block.text });
+        emit({ type: kind, text: block.text.trim() });
       }
       if (block.type === "server_tool_use" && block.name === "web_search") {
         emit({ type: "tool", tool: "web_search", input: block.input });
@@ -101,7 +107,6 @@ async function runLoop(apiKey: string, question: string, history: any[], emit: E
 
     messages.push({ role: "assistant", content: blocks });
 
-    const toolUses = blocks.filter((b) => b.type === "tool_use");
     if (!toolUses.length) {
       emit({ type: "done", stop: reply.stop_reason ?? "end_turn" });
       return;
@@ -109,6 +114,7 @@ async function runLoop(apiKey: string, question: string, history: any[], emit: E
 
     const results: any[] = [];
     for (const use of toolUses) {
+
       emit({ type: "tool", tool: use.name, input: use.input });
       const signature = `${use.name}:${JSON.stringify(use.input ?? {})}`;
       const result = seen.has(signature)
