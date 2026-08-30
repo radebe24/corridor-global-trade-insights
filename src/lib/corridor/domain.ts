@@ -1179,6 +1179,7 @@ async function loadTariffs() {
     } catch (err) {
       console.warn("Tariff data unavailable:", err);
       TARIFFS.failed = true;
+      TARIFFS.loading = null;
       return null;
     }
   })();
