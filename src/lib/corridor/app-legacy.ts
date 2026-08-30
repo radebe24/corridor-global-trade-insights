@@ -23,7 +23,7 @@ import {
   buildAssessmentRecord, assessmentStaleness, projectAssessmentRecords,
   projectDecisionBand, decisionBasis
 } from "./domain";
-import { cloudStore } from "./cloud-store";
+import { cloudStore, corridorHeaders } from "./cloud-store";
 
 export function bootCorridor({ navigate }: { navigate: (to: string) => void }) {
   const corridorNavigate = navigate;
@@ -2818,9 +2818,7 @@ export function bootCorridor({ navigate }: { navigate: (to: string) => void }) {
 
     const resp = await fetch(CONFIG.apiUrl, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
+      headers: corridorHeaders(),
       body: JSON.stringify(body)
     });
 
@@ -3759,9 +3757,7 @@ export function bootCorridor({ navigate }: { navigate: (to: string) => void }) {
 
     const resp = await fetch(CONFIG.apiUrl, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
+      headers: corridorHeaders(),
       body: JSON.stringify(body)
     });
 
