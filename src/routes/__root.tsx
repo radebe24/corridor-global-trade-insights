@@ -77,22 +77,44 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Lovable App" },
-      { name: "description", content: "Lovable Generated Project" },
-      { name: "author", content: "Lovable" },
-      { property: "og:title", content: "Lovable App" },
-      { property: "og:description", content: "Lovable Generated Project" },
+      { title: "Corridor — Tariff and trade risk intelligence" },
+      {
+        name: "description",
+        content:
+          "Price the duty on your sourcing book, find cheaper origins, and track the trade risk that threatens them.",
+      },
+      { name: "author", content: "Corridor" },
+      { property: "og:title", content: "Corridor — Tariff and trade risk intelligence" },
+      {
+        property: "og:description",
+        content:
+          "Price the duty on your sourcing book, find cheaper origins, and track the trade risk that threatens them.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
-      { name: "twitter:site", content: "@Lovable" },
+
     ],
     links: [
+      { rel: "preconnect", href: "https://fonts.googleapis.com" },
+      { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
+      {
+        rel: "stylesheet",
+        href: "https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter+Tight:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap",
+      },
       {
         rel: "stylesheet",
         href: appCss,
       },
       { rel: "icon", href: "/favicon.ico", type: "image/x-icon" },
     ],
+    scripts: [
+      /* Spreadsheet, PDF and pptx parsing for uploaded documents — the same
+         libraries the original app loaded. */
+      { src: "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js", defer: true },
+      { src: "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js", defer: true },
+      { src: "https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js", defer: true },
+    ],
+
   }),
   shellComponent: RootShell,
   component: RootComponent,
