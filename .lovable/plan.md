@@ -33,17 +33,24 @@ Port Corridor onto this project's stack, move the AI and secrets server-side, an
 - `/app/$projectId` and sub-views for the trade model, lanes/map, assessments, and watch feed.
 - Break `app.js` into React components backed by the ported TypeScript logic rather than DOM manipulation.
 
-### 3. Move AI server-side
+### 3. Move AI server-side (keeping Claude)
 - Enable Lovable Cloud.
-- Replace the browser-side Anthropic call with a server-side streaming chat endpoint using the AI SDK and the Lovable AI Gateway.
-- Delete the API-key bar and `corridor.api_key` entirely — users never supply a key again.
-- Keep the existing system prompts, tariff/MCS prompt blocks, memory injection, and assessment prompts; they move into the server handler unchanged.
+- Keep the current Claude behaviour: same model (`claude-sonnet-4-5`), same system prompts, same web-search tool use — but the call moves from the browser to a server-side streaming endpoint.
+- Store the Anthropic API key as a project secret so it is only ever read on the server. Users never supply a key.
+- Delete the API-key bar and `corridor.api_key` entirely.
+- Keep the tariff/MCS prompt blocks, memory injection, and assessment prompts unchanged; they move into the server handler as-is.
 
-### 4. Real persistence and accounts
-- Enable authentication so each user has an account.
+### 4. Real persistence, anonymous trial, and accounts
+- Anonymous trial session: a first-time visitor can open the workspace and run a project immediately, with their work held against an anonymous session.
+- Signing up claims that session — the anonymous project data is carried over to the new account rather than lost.
 - Move `localStorage` state into the database: projects, threads and messages, memories, documents, results, assessments, lanes, and watch items.
-- Row-level security so a user only sees their own projects; structured so team/org sharing can be added later.
-- One-time import path so an existing browser's `localStorage` projects can be migrated into the account on first sign-in.
+- Row-level security so a user (or anonymous session) only sees their own projects; structured so team/org sharing can be added later.
+- One-time import path so an existing browser's `localStorage` projects can be migrated into the account.
+
+### 4b. In-app "Request an analysis"
+- Replace the `hello@corridor.trade` mailto link with an in-app request form: contact details, rough SKU count, origins bought from, and a spreadsheet upload.
+- Submissions are stored in the database and visible to you, so requests become tracked records rather than emails.
+
 
 ### 5. Datasets
 - Serve `tariffs-2026.json` and `mcs2026.json` from `public/data/` with the existing lazy index-first loading, so first paint stays fast.
@@ -59,13 +66,13 @@ This is a port plus a backend, not a rewrite of the product logic. Broadening be
 
 ## Technical details
 
-- Stack: TanStack Start v1, React 19, Tailwind v4, Lovable Cloud (Postgres + auth), Lovable AI Gateway via the AI SDK.
-- Chat streaming goes through a server route under `src/routes/api/`; one-shot AI calls (assessments, memory extraction, watch checks) go through `createServerFn`.
+- Stack: TanStack Start v1, React 19, Tailwind v4, Lovable Cloud (Postgres + auth).
+- AI: the Anthropic Messages API called from the server with the existing model and prompts, using an `ANTHROPIC_API_KEY` project secret. Chat streaming goes through a server route under `src/routes/api/`; one-shot calls (assessments, memory extraction, watch checks) go through `createServerFn`.
+- Anonymous sessions use Lovable Cloud anonymous auth so RLS applies uniformly and claiming an account is a straight user-id link.
 - Ported domain logic lives in `src/lib/corridor/*.ts` as pure, testable modules with no DOM dependencies.
 - The Python tools in `tools/` stay as build-time scripts — they are not part of the runtime.
 
-## Open questions
+## Note on the Anthropic key
 
-- Should the MVP require sign-in to use the workspace, or allow an anonymous trial session that can be claimed later?
-- Do you want to keep the current Claude model behaviour, or is switching to the Lovable AI Gateway's default model acceptable for the MVP?
-- Is the `hello@corridor.trade` mailto flow on the home page staying, or should "Request an analysis" become an in-app form?
+Keeping Claude means the app needs your own Anthropic API key stored as a project secret (billed to your Anthropic account). I'll ask for it securely at the point I wire up the chat endpoint — nothing to do now.
+
