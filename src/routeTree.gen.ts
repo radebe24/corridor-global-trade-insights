@@ -10,12 +10,18 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AuthRouteImport } from './routes/auth'
 import { Route as RequestRouteImport } from './routes/request'
 import { Route as ApiAnthropicRouteImport } from './routes/api/anthropic'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthRoute = AuthRouteImport.update({
+  id: '/auth',
+  path: '/auth',
   getParentRoute: () => rootRouteImport,
 } as any)
 const RequestRoute = RequestRouteImport.update({
@@ -31,30 +37,34 @@ const ApiAnthropicRoute = ApiAnthropicRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/auth': typeof AuthRoute
   '/request': typeof RequestRoute
   '/api/anthropic': typeof ApiAnthropicRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/auth': typeof AuthRoute
   '/request': typeof RequestRoute
   '/api/anthropic': typeof ApiAnthropicRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/auth': typeof AuthRoute
   '/request': typeof RequestRoute
   '/api/anthropic': typeof ApiAnthropicRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/request' | '/api/anthropic'
+  fullPaths: '/' | '/auth' | '/request' | '/api/anthropic'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/request' | '/api/anthropic'
-  id: '__root__' | '/' | '/request' | '/api/anthropic'
+  to: '/' | '/auth' | '/request' | '/api/anthropic'
+  id: '__root__' | '/' | '/auth' | '/request' | '/api/anthropic'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AuthRoute: typeof AuthRoute
   RequestRoute: typeof RequestRoute
   ApiAnthropicRoute: typeof ApiAnthropicRoute
 }
@@ -66,6 +76,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/auth': {
+      id: '/auth'
+      path: '/auth'
+      fullPath: '/auth'
+      preLoaderRoute: typeof AuthRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/request': {
@@ -87,6 +104,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AuthRoute: AuthRoute,
   RequestRoute: RequestRoute,
   ApiAnthropicRoute: ApiAnthropicRoute,
 }
