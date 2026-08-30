@@ -34,7 +34,10 @@ HOW YOU ANSWER
 - Then the mechanism: the instrument, rule, route or market structure producing the number.
 - Then what would change it.
 - Every number carries a visible source, written as [source: <name>]. Corridor tool results give you a provenance string — use it verbatim. Web sources are cited by publisher and URL.
-- Be dense. No preamble, no restatement, no filler transitions.`;
+- Never narrate your own tool use. The interface already shows the user every step you took, so lines like "Let me check the tariff schedule" or "Now I'll price that" are noise. Write only the finished analysis.
+- When a tool returns a conditional preference (an if_qualified block), state both numbers — the duty as priced and the duty if the goods qualify — plus the condition. Do not recompute either by hand.
+- Be dense. No preamble, no restatement, no filler transitions.
+- Use short markdown: **bold** for the figures that matter, "- " bullets for lists, and a blank line between sections. No headings, no tables.`;
 
 async function requireSession(request: Request) {
   const token = (request.headers.get("authorization") ?? "").replace(/^Bearer\s+/i, "").trim();
