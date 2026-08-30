@@ -162,7 +162,8 @@ async function ensureTariffs() {
   await loadTariffs();
 }
 
-export async function runCorridorTool(name: string, input: Record<string, any>): Promise<ToolResult> {
+export async function runCorridorTool(name: string, raw: Record<string, any>): Promise<ToolResult> {
+  const input = raw as any;
   try {
     switch (name) {
       case "find_tariff_lines": {
@@ -197,10 +198,10 @@ export async function runCorridorTool(name: string, input: Record<string, any>):
         return {
           ok: true,
           provenance: `${HTS_SOURCE}; ${PROGRAM_SOURCE}`,
+          ...result,
           hts: line.h,
           description: line.d,
           origin: countryName(String(input.origin).toUpperCase()),
-          ...result,
         };
       }
 
@@ -228,7 +229,7 @@ export async function runCorridorTool(name: string, input: Record<string, any>):
 
       case "check_country_programmes": {
         const code = String(input.country).toUpperCase();
-        const programmes = COUNTRY_PROGRAMS[code] ?? null;
+        const programmes = (COUNTRY_PROGRAMS as any)[code] ?? null;
         const actions = input.hts
           ? tradeActionsFor(code, String(input.hts))
           : TRADE_ACTIONS.filter((a: any) => !a.countries || a.countries.includes(code));
@@ -239,7 +240,7 @@ export async function runCorridorTool(name: string, input: Record<string, any>):
           country_code: code,
           programmes: programmes
             ? Object.entries(programmes).map(([key, value]) => ({
-                programme: PROGRAM_LABELS[key] ?? key,
+                programme: (PROGRAM_LABELS as any)[key] ?? key,
                 code: key,
                 status: value,
               }))
@@ -274,7 +275,7 @@ export async function runCorridorTool(name: string, input: Record<string, any>):
           chokepoints: lane.route?.chokepoints ?? [],
           exposure: laneExposure(lane),
           known_destinations: DESTINATIONS,
-          origin_port: PORTS[origin] ?? null,
+          origin_port: (PORTS as any)[origin] ?? null,
         };
       }
 
