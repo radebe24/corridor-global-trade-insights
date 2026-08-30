@@ -10,11 +10,17 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as RequestRouteImport } from './routes/request'
 import { Route as ApiAnthropicRouteImport } from './routes/api/anthropic'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RequestRoute = RequestRouteImport.update({
+  id: '/request',
+  path: '/request',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiAnthropicRoute = ApiAnthropicRouteImport.update({
@@ -25,27 +31,31 @@ const ApiAnthropicRoute = ApiAnthropicRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/request': typeof RequestRoute
   '/api/anthropic': typeof ApiAnthropicRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/request': typeof RequestRoute
   '/api/anthropic': typeof ApiAnthropicRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/request': typeof RequestRoute
   '/api/anthropic': typeof ApiAnthropicRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/api/anthropic'
+  fullPaths: '/' | '/request' | '/api/anthropic'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/api/anthropic'
-  id: '__root__' | '/' | '/api/anthropic'
+  to: '/' | '/request' | '/api/anthropic'
+  id: '__root__' | '/' | '/request' | '/api/anthropic'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  RequestRoute: typeof RequestRoute
   ApiAnthropicRoute: typeof ApiAnthropicRoute
 }
 
@@ -56,6 +66,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/request': {
+      id: '/request'
+      path: '/request'
+      fullPath: '/request'
+      preLoaderRoute: typeof RequestRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/anthropic': {
@@ -70,6 +87,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  RequestRoute: RequestRoute,
   ApiAnthropicRoute: ApiAnthropicRoute,
 }
 export const routeTree = rootRouteImport
