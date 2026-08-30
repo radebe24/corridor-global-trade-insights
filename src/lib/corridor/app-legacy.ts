@@ -27,6 +27,8 @@ import { cloudStore, corridorHeaders } from "./cloud-store";
 
 export function bootCorridor({ navigate }: { navigate: (to: string) => void }) {
   const corridorNavigate = navigate;
+  (window as any).__corridorBoots = ((window as any).__corridorBoots || 0) + 1;
+  console.log('corridor boot start');
   /* ==========================================================================
      CORRIDOR — Phase 1 web application
      Live answers via Anthropic Messages API + web search.
@@ -5251,6 +5253,7 @@ export function bootCorridor({ navigate }: { navigate: (to: string) => void }) {
 
   /* Land somewhere. Without this nothing has the active class and the main
      column is blank, which is what a plain reload used to do. */
+  console.log('corridor boot reached showHome');
   showHome();
 
 
