@@ -23,7 +23,7 @@ export const Route = createFileRoute("/intel")({
 
 type Step =
   | { kind: "tool"; tool: string; input: unknown; result?: unknown }
-  | { kind: "text"; text: string };
+  | { kind: "note"; text: string };
 
 type Turn = {
   question: string;
@@ -32,6 +32,7 @@ type Turn = {
   error?: string;
   running: boolean;
 };
+
 
 const EXAMPLES = [
   "What duty would we pay importing cotton knit t-shirts from Kenya versus Vietnam on a $2m order, and does AGOA change it?",
