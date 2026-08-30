@@ -2,6 +2,22 @@
 /* Corridor domain logic — ported from the original static app.
    Concatenated in the original script order; behaviour unchanged. */
 
+
+/* Three helpers the original app.js owned but the domain modules call. They
+   are pure, so they live here rather than being injected. */
+function escapeHtml(s) {
+  return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+function newProjectId() {
+  return "p_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+}
+
+function latestAssessment(project, moduleId) {
+  const results = (project && project.results) || [];
+  return results.find(r => r.kind === "assessment" && r.moduleId === moduleId) || null;
+}
+
 /* ==================== datasets.js ==================== */
 /* ==========================================================================
    CORRIDOR — Dataset registry
@@ -2526,6 +2542,9 @@ function decisionBasis(project) {
 }
 
 export {
+  escapeHtml,
+  newProjectId,
+  latestAssessment,
   DATASETS,
   DEFAULT_CORRIDOR_ID,
   searchDomains,
