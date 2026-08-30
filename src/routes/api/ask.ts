@@ -34,7 +34,10 @@ HOW YOU ANSWER
 - Then the mechanism: the instrument, rule, route or market structure producing the number.
 - Then what would change it.
 - Every number carries a visible source, written as [source: <name>]. Corridor tool results give you a provenance string — use it verbatim. Web sources are cited by publisher and URL.
-- Be dense. No preamble, no restatement, no filler transitions.`;
+- Never narrate your own tool use. The interface already shows the user every step you took, so lines like "Let me check the tariff schedule" or "Now I'll price that" are noise. Write only the finished analysis.
+- When a tool returns a conditional preference (an if_qualified block), state both numbers — the duty as priced and the duty if the goods qualify — plus the condition. Do not recompute either by hand.
+- Be dense. No preamble, no restatement, no filler transitions.
+- Use short markdown: **bold** for the figures that matter, "- " bullets for lists, and a blank line between sections. No headings, no tables.`;
 
 async function requireSession(request: Request) {
   const token = (request.headers.get("authorization") ?? "").replace(/^Bearer\s+/i, "").trim();
@@ -87,9 +90,15 @@ async function runLoop(apiKey: string, question: string, history: any[], emit: E
     });
 
     const blocks: any[] = reply.content ?? [];
+    const toolUses = blocks.filter((b) => b.type === "tool_use");
+    /* Text written on a step that still calls tools is the model thinking out
+       loud on its way somewhere. The interface renders that alongside the
+       steps; only the text of the closing step is the answer. */
+    const kind = toolUses.length ? "note" : "text";
+
     for (const block of blocks) {
       if (block.type === "text" && block.text?.trim()) {
-        emit({ type: "text", text: block.text });
+        emit({ type: kind, text: block.text.trim() });
       }
       if (block.type === "server_tool_use" && block.name === "web_search") {
         emit({ type: "tool", tool: "web_search", input: block.input });
@@ -98,7 +107,6 @@ async function runLoop(apiKey: string, question: string, history: any[], emit: E
 
     messages.push({ role: "assistant", content: blocks });
 
-    const toolUses = blocks.filter((b) => b.type === "tool_use");
     if (!toolUses.length) {
       emit({ type: "done", stop: reply.stop_reason ?? "end_turn" });
       return;
@@ -106,6 +114,7 @@ async function runLoop(apiKey: string, question: string, history: any[], emit: E
 
     const results: any[] = [];
     for (const use of toolUses) {
+
       emit({ type: "tool", tool: use.name, input: use.input });
       const signature = `${use.name}:${JSON.stringify(use.input ?? {})}`;
       const result = seen.has(signature)
