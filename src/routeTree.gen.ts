@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthRouteImport } from './routes/auth'
+import { Route as IntelRouteImport } from './routes/intel'
 import { Route as RequestRouteImport } from './routes/request'
 import { Route as ApiAnthropicRouteImport } from './routes/api/anthropic'
 import { Route as ApiAskRouteImport } from './routes/api/ask'
@@ -23,6 +24,11 @@ const IndexRoute = IndexRouteImport.update({
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
   path: '/auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const IntelRoute = IntelRouteImport.update({
+  id: '/intel',
+  path: '/intel',
   getParentRoute: () => rootRouteImport,
 } as any)
 const RequestRoute = RequestRouteImport.update({
@@ -44,6 +50,7 @@ const ApiAskRoute = ApiAskRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/intel': typeof IntelRoute
   '/request': typeof RequestRoute
   '/api/anthropic': typeof ApiAnthropicRoute
   '/api/ask': typeof ApiAskRoute
@@ -51,6 +58,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/intel': typeof IntelRoute
   '/request': typeof RequestRoute
   '/api/anthropic': typeof ApiAnthropicRoute
   '/api/ask': typeof ApiAskRoute
@@ -59,21 +67,31 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/intel': typeof IntelRoute
   '/request': typeof RequestRoute
   '/api/anthropic': typeof ApiAnthropicRoute
   '/api/ask': typeof ApiAskRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/auth' | '/request' | '/api/anthropic' | '/api/ask'
+  fullPaths:
+    '/' | '/auth' | '/intel' | '/request' | '/api/anthropic' | '/api/ask'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/auth' | '/request' | '/api/anthropic' | '/api/ask'
-  id: '__root__' | '/' | '/auth' | '/request' | '/api/anthropic' | '/api/ask'
+  to: '/' | '/auth' | '/intel' | '/request' | '/api/anthropic' | '/api/ask'
+  id:
+    | '__root__'
+    | '/'
+    | '/auth'
+    | '/intel'
+    | '/request'
+    | '/api/anthropic'
+    | '/api/ask'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthRoute: typeof AuthRoute
+  IntelRoute: typeof IntelRoute
   RequestRoute: typeof RequestRoute
   ApiAnthropicRoute: typeof ApiAnthropicRoute
   ApiAskRoute: typeof ApiAskRoute
@@ -93,6 +111,13 @@ declare module '@tanstack/react-router' {
       path: '/auth'
       fullPath: '/auth'
       preLoaderRoute: typeof AuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/intel': {
+      id: '/intel'
+      path: '/intel'
+      fullPath: '/intel'
+      preLoaderRoute: typeof IntelRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/request': {
@@ -122,6 +147,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthRoute: AuthRoute,
+  IntelRoute: IntelRoute,
   RequestRoute: RequestRoute,
   ApiAnthropicRoute: ApiAnthropicRoute,
   ApiAskRoute: ApiAskRoute,
