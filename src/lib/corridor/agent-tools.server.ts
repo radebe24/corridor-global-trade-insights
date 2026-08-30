@@ -11,6 +11,7 @@ import {
   setCorridorDataBase,
   loadTariffs,
   searchHts,
+  TARIFFS,
   htsByCode,
   computeDuty,
   compareOrigins,
@@ -158,6 +159,53 @@ export const CORRIDOR_TOOLS = [
   },
 ];
 
+
+const STOP = new Set([
+  "the","a","an","of","for","and","or","with","without","from","to","in","on",
+  "other","others","not","elsewhere","specified","included","goods","products",
+  "made","type","types","kind","kinds","item","items","us","usa",
+]);
+
+/* The original search matched the whole phrase as a substring, which is right
+   for a person typing into a box and useless for an analyst asking for
+   "cotton knit t-shirts". This scores a line by how much of the question it
+   actually covers, so a natural-language product description lands. */
+function searchHtsSmart(query: string, limit: number) {
+  const rows = (TARIFFS as any).rows as any[] | null;
+  if (!rows) return [];
+
+  const digits = query.replace(/\D/g, "");
+  if (digits.length >= 4) {
+    const exact = rows.filter((r) => r.h.startsWith(digits)).slice(0, limit);
+    if (exact.length) return exact;
+  }
+
+  const direct = searchHts(query, limit);
+  if (direct.length) return direct;
+
+  const tokens = query
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, " ")
+    .split(/[\s-]+/)
+    .map((w) => w.trim())
+    .filter((w) => w.length > 2 && !STOP.has(w));
+  if (!tokens.length) return [];
+
+  const scored: { row: any; score: number }[] = [];
+  for (const row of rows) {
+    const description = String(row.d ?? "").toLowerCase();
+    let score = 0;
+    for (const token of tokens) {
+      if (description.includes(token)) score += 2;
+      else if (token.length > 4 && description.includes(token.slice(0, -1))) score += 1;
+    }
+    if (score >= 2) scored.push({ row, score: score - description.length / 4000 });
+  }
+
+  scored.sort((a, b) => b.score - a.score);
+  return scored.slice(0, limit).map((s) => s.row);
+}
+
 async function ensureTariffs() {
   await loadTariffs();
 }
@@ -168,7 +216,7 @@ export async function runCorridorTool(name: string, raw: Record<string, any>): P
     switch (name) {
       case "find_tariff_lines": {
         await ensureTariffs();
-        const rows = searchHts(String(input.query ?? ""), Number(input.limit) || 12);
+        const rows = searchHtsSmart(String(input.query ?? ""), Number(input.limit) || 12);
         return {
           ok: true,
           provenance: HTS_SOURCE,

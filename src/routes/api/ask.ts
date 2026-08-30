@@ -70,6 +70,9 @@ async function callClaude(apiKey: string, body: unknown) {
 
 async function runLoop(apiKey: string, question: string, history: any[], emit: Emit) {
   const messages: any[] = [...history, { role: "user", content: question }];
+  /* A repeated identical call means the tool is not going to answer it. Say so
+     once rather than letting the loop spin through its whole step budget. */
+  const seen = new Set<string>();
 
   for (let step = 0; step < MAX_STEPS; step++) {
     const reply = await callClaude(apiKey, {
@@ -104,7 +107,15 @@ async function runLoop(apiKey: string, question: string, history: any[], emit: E
     const results: any[] = [];
     for (const use of toolUses) {
       emit({ type: "tool", tool: use.name, input: use.input });
-      const result = await runCorridorTool(use.name, use.input ?? {});
+      const signature = `${use.name}:${JSON.stringify(use.input ?? {})}`;
+      const result = seen.has(signature)
+        ? {
+            ok: false,
+            error:
+              "You already ran this exact call and got this same result. Do not repeat it — either change the arguments, use a different tool, use web_search, or answer with what you have and state the gap.",
+          }
+        : await runCorridorTool(use.name, use.input ?? {});
+      seen.add(signature);
       emit({ type: "tool_result", tool: use.name, result });
       results.push({
         type: "tool_result",

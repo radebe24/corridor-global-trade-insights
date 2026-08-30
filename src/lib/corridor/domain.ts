@@ -23,7 +23,7 @@ function latestAssessment(project, moduleId) {
    so the base can be set before any dataset is loaded. */
 let CORRIDOR_DATA_BASE = "";
 function setCorridorDataBase(base) { CORRIDOR_DATA_BASE = base.replace(/\/$/, ""); }
-function dataUrl(p) { return CORRIDOR_DATA_BASE + p; }
+function dataUrl(p) { return CORRIDOR_DATA_BASE + (String(p).startsWith("/") ? p : "/" + p); }
 
 /* ==================== datasets.js ==================== */
 /* ==========================================================================
@@ -1179,6 +1179,7 @@ async function loadTariffs() {
     } catch (err) {
       console.warn("Tariff data unavailable:", err);
       TARIFFS.failed = true;
+      TARIFFS.loading = null;
       return null;
     }
   })();
