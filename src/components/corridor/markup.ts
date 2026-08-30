@@ -29,6 +29,7 @@ export const CORRIDOR_MARKUP = `<div class="app">
       <button class="nav-link" id="navHome">Home</button>
       <button class="nav-link" id="navProject">Project</button>
       <button class="nav-link" id="navSettings">Settings</button>
+      <a class="nav-link" href="/intel" data-corridor-link="/intel">Ask Corridor</a>
       <a class="nav-link" href="/auth" data-corridor-link="/auth">Account</a>
     </div>
   </div>
@@ -91,6 +92,7 @@ export const CORRIDOR_MARKUP = `<div class="app">
             <span class="btn-arrow">&rarr;</span>
           </a>
           <button class="btn-ghost" id="startProjectBtn">Open the workspace</button>
+          <a class="btn-ghost" href="/intel" data-corridor-link="/intel">Ask Corridor</a>
         </div>
       </div>
     </div>

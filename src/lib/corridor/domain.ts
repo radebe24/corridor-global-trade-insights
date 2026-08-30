@@ -18,6 +18,13 @@ function latestAssessment(project, moduleId) {
   return results.find(r => r.kind === "assessment" && r.moduleId === moduleId) || null;
 }
 
+
+/* Datasets are served from /data. On the server there is no relative origin,
+   so the base can be set before any dataset is loaded. */
+let CORRIDOR_DATA_BASE = "";
+function setCorridorDataBase(base) { CORRIDOR_DATA_BASE = base.replace(/\/$/, ""); }
+function dataUrl(p) { return CORRIDOR_DATA_BASE + p; }
+
 /* ==================== datasets.js ==================== */
 /* ==========================================================================
    CORRIDOR — Dataset registry
@@ -869,7 +876,7 @@ async function loadMcsIndex() {
   if (MCS.index) return MCS.index;
   if (MCS.failed) return null;
   try {
-    const resp = await fetch("/data/mcs2026-index.json");
+    const resp = await fetch(dataUrl("/data/mcs2026-index.json"));
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
     MCS.index = await resp.json();
     return MCS.index;
@@ -885,7 +892,7 @@ async function loadMcs() {
   if (MCS.loading) return MCS.loading;
   MCS.loading = (async () => {
     try {
-      const resp = await fetch("/data/mcs2026.json");
+      const resp = await fetch(dataUrl("/data/mcs2026.json"));
       if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
       MCS.rows = await resp.json();
       return MCS.rows;
@@ -1132,7 +1139,7 @@ async function loadTariffIndex() {
   if (TARIFFS.index) return TARIFFS.index;
   if (TARIFFS.failed) return null;
   try {
-    const resp = await fetch("/data/tariffs-index.json");
+    const resp = await fetch(dataUrl("/data/tariffs-index.json"));
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
     TARIFFS.index = await resp.json();
     return TARIFFS.index;
@@ -1149,7 +1156,7 @@ async function loadTariffs() {
     try {
       const index = await loadTariffIndex();
       const path = (index && index.dataPath) || "/data/tariffs-2026.json";
-      const resp = await fetch(path);
+      const resp = await fetch(dataUrl(path));
       if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
       TARIFFS.rows = await resp.json();
       TARIFFS.byCode = new Map(TARIFFS.rows.map(r => [r.h, r]));
@@ -1608,8 +1615,8 @@ async function loadGeo() {
   GEO.loading = (async () => {
     try {
       const [world, cp] = await Promise.all([
-        fetch("/data/world.json").then(r => r.json()),
-        fetch("/data/chokepoints.json").then(r => r.json())
+        fetch(dataUrl("/data/world.json")).then(r => r.json()),
+        fetch(dataUrl("/data/chokepoints.json")).then(r => r.json())
       ]);
       GEO.world = world;
       GEO.chokepoints = cp;
@@ -2542,6 +2549,7 @@ function decisionBasis(project) {
 }
 
 export {
+  setCorridorDataBase,
   escapeHtml,
   newProjectId,
   latestAssessment,
