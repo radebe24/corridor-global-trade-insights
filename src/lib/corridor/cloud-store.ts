@@ -147,3 +147,17 @@ export const cloudStore = {
     return true;
   },
 };
+
+/* The Claude route needs proof of a session; the browser never sees the key. */
+let accessToken: string | null = null;
+
+export function setCorridorAccessToken(token: string | null) {
+  accessToken = token;
+}
+
+export function corridorHeaders(): Record<string, string> {
+  return {
+    "Content-Type": "application/json",
+    ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+  };
+}
