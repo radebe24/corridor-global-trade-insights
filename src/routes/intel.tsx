@@ -250,56 +250,88 @@ const TOOL_LABELS: Record<string, string> = {
   web_search: "Searching public sources",
 };
 
-function TurnView({ turn }: { turn: Turn }) {
-  const toolSteps = turn.steps.filter((s): s is Extract<Step, { kind: "tool" }> => s.kind === "tool");
+/* The answer arrives as light markdown: bold figures, dash bullets, blank-line
+   paragraphs, and [source: …] citations. Rendering it as a wall of preformatted
+   text was the last thing making an analyst's output look like debug output. */
+function AnswerBody({ text }: { text: string }) {
+  const blocks = text.split(/\n{2,}/).filter((b) => b.trim());
 
   return (
-    <div>
-      <div className="section-eyebrow">Question</div>
-      <div className="how-title" style={{ marginBottom: 20 }}>
-        {turn.question}
-      </div>
+    <div className="intel-answer">
+      {blocks.map((block, index) => {
+        const lines = block.split("\n");
+        const bullets = lines.every((l) => /^\s*[-*•]\s+/.test(l));
+        if (bullets) {
+          return (
+            <ul key={index}>
+              {lines.map((line, i) => (
+                <li key={i}>{inline(line.replace(/^\s*[-*•]\s+/, ""))}</li>
+              ))}
+            </ul>
+          );
+        }
+        return <p key={index}>{inline(block)}</p>;
+      })}
+    </div>
+  );
+}
 
-      {toolSteps.length ? (
-        <div style={{ marginBottom: 24, display: "grid", gap: 6 }}>
-          <div className="section-eyebrow">What Corridor did</div>
-          {toolSteps.map((step, index) => (
-            <details key={index} style={{ borderBottom: "1px solid var(--color-border-soft)" }}>
-              <summary
-                style={{
-                  cursor: "pointer",
-                  padding: "8px 0",
-                  fontFamily: "var(--font-mono)",
-                  fontSize: 12,
-                }}
-              >
-                {TOOL_LABELS[step.tool] ?? step.tool}
-                {step.result ? "" : " …"}
-              </summary>
-              <pre
-                style={{
-                  fontSize: 11,
-                  overflowX: "auto",
-                  padding: "8px 0 14px",
-                  color: "var(--color-on-surface-muted)",
-                }}
-              >
-                {JSON.stringify(step.result ?? step.input, null, 2).slice(0, 4000)}
-              </pre>
-            </details>
-          ))}
+function inline(text: string) {
+  const parts = text.split(/(\*\*[^*]+\*\*|\[source:[^\]]+\])/g);
+  return parts.map((part, i) => {
+    if (/^\*\*[^*]+\*\*$/.test(part)) return <strong key={i}>{part.slice(2, -2)}</strong>;
+    if (/^\[source:/.test(part))
+      return (
+        <span key={i} className="intel-cite">
+          {part.slice(1, -1)}
+        </span>
+      );
+    return <span key={i}>{part}</span>;
+  });
+}
+
+function TurnView({ turn }: { turn: Turn }) {
+  const done = turn.steps.filter((s) => s.kind === "tool" && s.result).length;
+  const total = turn.steps.filter((s) => s.kind === "tool").length;
+
+  return (
+    <article className="intel-turn">
+      <div className="intel-question">{turn.question}</div>
+
+      {turn.steps.length ? (
+        <div className="intel-steps">
+          <div className="section-eyebrow">
+            What Corridor did{total ? ` — ${done}/${total} checks` : ""}
+          </div>
+          {turn.steps.map((step, index) =>
+            step.kind === "note" ? (
+              <div key={index} className="intel-note">
+                {step.text}
+              </div>
+            ) : (
+              <details key={index} className="intel-step">
+                <summary>
+                  <span className={`intel-dot${step.result ? " is-done" : ""}`} />
+                  {TOOL_LABELS[step.tool] ?? step.tool}
+                  {step.result ? "" : " …"}
+                </summary>
+                <pre>{JSON.stringify(step.result ?? step.input, null, 2).slice(0, 4000)}</pre>
+              </details>
+            ),
+          )}
         </div>
       ) : null}
 
       {turn.answer ? (
-        <div style={{ whiteSpace: "pre-wrap", lineHeight: "var(--lh-body)" }}>{turn.answer}</div>
+        <AnswerBody text={turn.answer} />
       ) : turn.running ? (
         <div className="how-copy">Working through it…</div>
       ) : null}
 
-      {turn.error ? (
-        <div style={{ color: "var(--color-error)", fontSize: 13, marginTop: 12 }}>{turn.error}</div>
-      ) : null}
-    </div>
+      {turn.error ? <div className="intel-error">{turn.error}</div> : null}
+    </article>
+  );
+}
+
   );
 }
