@@ -48,11 +48,11 @@ export const Route = createFileRoute("/api/anthropic")({
           return new Response("Invalid request body.", { status: 400 });
         }
 
-        const model = typeof body.model === "string" ? body.model : "";
+        const model = typeof body["model"] === "string" ? (body["model"] as string) : "";
         if (!model.startsWith(ALLOWED_MODEL_PREFIX)) {
           return new Response("Unsupported model.", { status: 400 });
         }
-        if (!Array.isArray(body.messages) || body.messages.length === 0) {
+        if (!Array.isArray(body["messages"]) || (body["messages"] as unknown[]).length === 0) {
           return new Response("Messages are required.", { status: 400 });
         }
 
