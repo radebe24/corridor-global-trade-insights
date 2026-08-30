@@ -1,62 +1,71 @@
-# Corridor — Global Trade Insights MVP Plan
+# Corridor — Port the existing app and ship a working MVP
 
-## Goal
-Turn Corridor into a working MVP: a chat-first market-research platform that lets large global companies, investors, insurers, and similar players track trade and geopolitical risk across spaces they care about (tariffs, sanctions, supply-chain disruptions, etc.).
+## What exists today (from the GitHub repo)
 
-## Current state
-- This project is a fresh TanStack Start + Tailwind v4 template.
-- Only the root layout and a placeholder `src/routes/index.tsx` exist.
-- No Lovable Cloud backend, auth, or data persistence is configured yet.
-- The Corridor code lives in a private GitHub repo (`radebe24/corridor`) that still needs to be made accessible for audit.
+Corridor is already a substantial, working product — but as a static site with no build step and no backend:
+
+- `index.html` (634 lines) — full single-page UI: home/marketing view, project workspace, sidebar with projects, settings panel.
+- `app.js` (5,245 lines) — the whole application: projects, chat threads, memories, document uploads, results, assessments, trade model.
+- Domain modules: `tariffs.js` (HTS lookup, rate resolution, duty computation, origin comparison, MPF/preference programs), `datasets.js` (dataset registry, SPI codes, country programs, trade actions, assessment modules and bands), `lanes.js` (ports, routes, chokepoints, lane exposure), `mcs.js` (USGS mineral commodity summaries search), `watch.js` (watch items, staleness, feed), `assessments.js` (module prompts, scoring, decision bands), `map.js` (SVG world map with lane arcs and chokepoints).
+- `data/` — real datasets: `tariffs-2026.json` (4 MB), `mcs2026.json` (2.4 MB), plus indexes, `world.json`, `chokepoints.json`, `africa-gis-layers.json`.
+- `tools/` — Python build scripts that generate those datasets from public sources.
+- `styles.css` (5,274 lines) — a complete, distinctive design system (Instrument Serif / Inter Tight / JetBrains Mono, globe canvas, coordinate readouts).
+
+Two structural problems block it from being the "premier global trade insights platform":
+
+1. **The Anthropic API key is entered by the user in the browser** and every model call goes direct from the browser to `api.anthropic.com` with `anthropic-dangerous-direct-browser-access`. That is not shippable to enterprise customers.
+2. **All state lives in `localStorage`** (`corridor.projects`, memories, results). Nothing is shared, nothing survives a device change, there are no accounts, and there is no team access.
+
+## Goal for this MVP
+
+Port Corridor onto this project's stack, move the AI and secrets server-side, and put projects/threads/results in a real database — while preserving the existing design, domain logic, and datasets exactly as they are.
 
 ## Plan
 
-### 1. Audit the existing Corridor codebase
-- Clone or review the shared GitHub repo.
-- Document: framework/stack, existing routes/components, data model, auth approach, AI/chat integration, external APIs, and any assets/branding.
-- Identify what can be imported directly vs. what needs to be rebuilt to fit TanStack Start / Lovable Cloud.
+### 1. Bring the code in
+- Copy the repo into this project: `styles.css` content merged into the design system, `data/` into `public/data/`, and `tools/` kept as-is for dataset regeneration.
+- Port the domain modules (`tariffs`, `datasets`, `lanes`, `mcs`, `watch`, `assessments`, `map`) to TypeScript modules under `src/lib/corridor/`. These are pure logic and translate almost directly — no behaviour changes.
+- Preserve the Corridor visual identity: same fonts (loaded via a `<link>` in the root route), same colour system and typography, ported into semantic design tokens.
 
-### 2. Decide migration strategy
-- **Option A — Direct import:** Copy compatible files into this project and reconcile routing/state.
-- **Option B — Rebuild using Corridor as reference:** Keep the design and logic, but rewrite on the current stack for cleaner integration.
-- Choose based on the audit; default to the path that gets a working MVP fastest.
+### 2. Rebuild the UI as routes and components
+- `/` — the home/marketing view (hero, globe canvas, how-it-works), replacing the placeholder index.
+- `/app` — the project workspace: sidebar project list, chat thread, results.
+- `/app/$projectId` and sub-views for the trade model, lanes/map, assessments, and watch feed.
+- Break `app.js` into React components backed by the ported TypeScript logic rather than DOM manipulation.
 
-### 3. Set up backend foundation
-- Enable Lovable Cloud for persistence, auth, and server-side logic.
-- Create the core schema for:
-  - Users / organizations
-  - Chat threads and messages
-  - Risk "spaces" or watchlists (topics/countries/sectors the user tracks)
-  - Data sources / events attached to spaces
-- Apply RLS and GRANT statements per project conventions.
+### 3. Move AI server-side
+- Enable Lovable Cloud.
+- Replace the browser-side Anthropic call with a server-side streaming chat endpoint using the AI SDK and the Lovable AI Gateway.
+- Delete the API-key bar and `corridor.api_key` entirely — users never supply a key again.
+- Keep the existing system prompts, tariff/MCS prompt blocks, memory injection, and assessment prompts; they move into the server handler unchanged.
 
-### 4. Build the chat-first research experience
-- Implement a streaming chat UI backed by a server route or `createServerFn`.
-- Use Lovable AI Gateway with the AI SDK for research-style responses.
-- Add tools for structured output: risk summaries, tariff updates, country/sector snapshots.
-- Persist threads and messages in the database.
+### 4. Real persistence and accounts
+- Enable authentication so each user has an account.
+- Move `localStorage` state into the database: projects, threads and messages, memories, documents, results, assessments, lanes, and watch items.
+- Row-level security so a user only sees their own projects; structured so team/org sharing can be added later.
+- One-time import path so an existing browser's `localStorage` projects can be migrated into the account on first sign-in.
 
-### 5. Create risk tracking spaces
-- Let users create and follow "spaces" (e.g., "US–China tariffs", "EU battery regulations", "Red Sea shipping").
-- Store space metadata and associate AI-generated insights or external events with each space.
-- Surface recent activity and risk signals in a dashboard or sidebar.
+### 5. Datasets
+- Serve `tariffs-2026.json` and `mcs2026.json` from `public/data/` with the existing lazy index-first loading, so first paint stays fast.
+- Keep the index files as the search entry point, exactly as `tariffs.js`/`mcs.js` do now.
 
-### 6. Landing page + navigation
-- Replace the placeholder `src/routes/index.tsx` with a Corridor-branded landing page.
-- Add app routes: `/chat`, `/spaces`, `/space/:id`, and auth routes if needed.
-- Ensure every route has unique `head()` metadata (title, description, OG/Twitter tags).
+### 6. Verify
+- Confirm the home page, workspace, chat streaming, tariff duty computation, origin comparison, map rendering, and assessments all work end-to-end in the preview.
+- Add unique page metadata per route (title, description, OG/Twitter).
 
-### 7. Verify and ship
-- Run `build:dev` and fix any SSR/import issues.
-- Test chat streaming, space creation, and persistence end-to-end.
-- Confirm the dev preview renders the MVP correctly before declaring the milestone done.
+## Scope note
 
-## Open questions to resolve before implementation
-- How should I access the private Corridor repo?
-- Does the MVP need user authentication immediately, or can it start with anonymous sessions?
-- Are there specific data sources (e.g., official tariff feeds, news APIs) the research agent should call, or should it rely on the model's knowledge for the MVP?
+This is a port plus a backend, not a rewrite of the product logic. Broadening beyond tariffs into the wider risk-tracking vision (sanctions, geopolitical events, insurance-grade risk scoring across arbitrary "spaces") is the natural next milestone — the assessment-module and watch-item structures already in the code are the right foundation for it, but this MVP focuses on getting what exists onto a real, secure, multi-user platform.
 
 ## Technical details
-- Stack: TanStack Start v1, React 19, Tailwind CSS v4, Lovable Cloud (Supabase), Lovable AI Gateway via AI SDK.
-- Server boundaries: chat streaming via server route; other AI calls via `createServerFn`.
-- Auth: Lovable Cloud managed auth if required; otherwise defer to a later milestone.
+
+- Stack: TanStack Start v1, React 19, Tailwind v4, Lovable Cloud (Postgres + auth), Lovable AI Gateway via the AI SDK.
+- Chat streaming goes through a server route under `src/routes/api/`; one-shot AI calls (assessments, memory extraction, watch checks) go through `createServerFn`.
+- Ported domain logic lives in `src/lib/corridor/*.ts` as pure, testable modules with no DOM dependencies.
+- The Python tools in `tools/` stay as build-time scripts — they are not part of the runtime.
+
+## Open questions
+
+- Should the MVP require sign-in to use the workspace, or allow an anonymous trial session that can be claimed later?
+- Do you want to keep the current Claude model behaviour, or is switching to the Lovable AI Gateway's default model acceptable for the MVP?
+- Is the `hello@corridor.trade` mailto flow on the home page staying, or should "Request an analysis" become an in-app form?
