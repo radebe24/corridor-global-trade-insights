@@ -332,6 +332,3 @@ function TurnView({ turn }: { turn: Turn }) {
     </article>
   );
 }
-
-  );
-}
