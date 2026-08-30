@@ -188,20 +188,22 @@ function Intel() {
           </p>
 
           {turns.length === 0 ? (
-            <div style={{ display: "grid", gap: 10, marginTop: 28 }}>
+            <div className="intel-examples">
+              <div className="section-eyebrow">Try one</div>
               {EXAMPLES.map((example) => (
                 <button
                   key={example}
                   type="button"
-                  className="how-step"
-                  style={{ textAlign: "left", cursor: "pointer" }}
+                  className="intel-example"
                   onClick={() => void ask(example)}
                 >
-                  <div className="how-copy">{example}</div>
+                  {example}
+                  <span aria-hidden>→</span>
                 </button>
               ))}
             </div>
           ) : null}
+
 
           <div ref={scroller} style={{ marginTop: 32, display: "grid", gap: 40 }}>
             {turns.map((turn, index) => (
