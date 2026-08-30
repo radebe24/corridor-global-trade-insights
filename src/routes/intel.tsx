@@ -110,13 +110,15 @@ function Intel() {
             update((t) => ({
               ...t,
               answer: t.answer ? `${t.answer}\n\n${event.text}` : event.text,
-              steps: [...t.steps, { kind: "text", text: event.text }],
             }));
+          } else if (event.type === "note") {
+            update((t) => ({ ...t, steps: [...t.steps, { kind: "note", text: event.text }] }));
           } else if (event.type === "tool") {
             update((t) => ({
               ...t,
               steps: [...t.steps, { kind: "tool", tool: event.tool, input: event.input }],
             }));
+
           } else if (event.type === "tool_result") {
             update((t) => {
               const steps = [...t.steps];
