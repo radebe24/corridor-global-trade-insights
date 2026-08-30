@@ -235,18 +235,43 @@ export async function runCorridorTool(name: string, raw: Record<string, any>): P
         await ensureTariffs();
         const line = htsByCode(String(input.hts));
         if (!line) return { ok: false, error: `No HTS line ${input.hts} in the 2026 schedule.` };
-        const result = computeDuty({
+        const value = Number(input.value_usd);
+        const result: any = computeDuty({
           line,
           originCode: String(input.origin).toUpperCase(),
-          value: Number(input.value_usd),
+          value,
           quantity: Number(input.quantity) || 0,
           mode: String(input.mode ?? "ocean"),
           claimPreferences: input.claim_preferences !== false,
         });
+
+        /* A preference that is available but conditional comes back as an
+           opportunity rather than an applied rate, because qualifying is a
+           rules-of-origin determination a tariff line cannot make. Price that
+           case here anyway, so the answer can carry both numbers and the
+           saving without the model doing the arithmetic itself. */
+        const opportunity = result?.resolved?.opportunity ?? null;
+        let ifQualified = null;
+        if (opportunity && !result.notComputable) {
+          const rate = Number(opportunity.potentialRate) || 0;
+          const duty = Math.round(value * rate);
+          ifQualified = {
+            programme: opportunity.label ?? opportunity.program,
+            rate,
+            rate_text: rate === 0 ? "Free" : `${(rate * 100).toFixed(2).replace(/\.?0+$/, "")}%`,
+            duty,
+            saving_vs_priced: Math.max(0, (result.duty ?? 0) - duty),
+            requirement: opportunity.requirement,
+            note:
+              "Conditional. This is the duty if the goods qualify; the priced figure above is the duty if they do not. State both.",
+          };
+        }
+
         return {
           ok: true,
           provenance: `${HTS_SOURCE}; ${PROGRAM_SOURCE}`,
           ...result,
+          if_qualified: ifQualified,
           hts: line.h,
           description: line.d,
           origin: countryName(String(input.origin).toUpperCase()),
