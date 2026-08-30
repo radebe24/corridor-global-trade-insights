@@ -29,6 +29,7 @@ export const CORRIDOR_MARKUP = `<div class="app">
       <button class="nav-link" id="navHome">Home</button>
       <button class="nav-link" id="navProject">Project</button>
       <button class="nav-link" id="navSettings">Settings</button>
+      <a class="nav-link" href="/auth" data-corridor-link="/auth">Account</a>
     </div>
   </div>
 </nav>
