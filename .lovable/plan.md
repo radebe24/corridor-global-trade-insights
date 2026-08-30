@@ -66,13 +66,13 @@ This is a port plus a backend, not a rewrite of the product logic. Broadening be
 
 ## Technical details
 
-- Stack: TanStack Start v1, React 19, Tailwind v4, Lovable Cloud (Postgres + auth), Lovable AI Gateway via the AI SDK.
-- Chat streaming goes through a server route under `src/routes/api/`; one-shot AI calls (assessments, memory extraction, watch checks) go through `createServerFn`.
+- Stack: TanStack Start v1, React 19, Tailwind v4, Lovable Cloud (Postgres + auth).
+- AI: the Anthropic Messages API called from the server with the existing model and prompts, using an `ANTHROPIC_API_KEY` project secret. Chat streaming goes through a server route under `src/routes/api/`; one-shot calls (assessments, memory extraction, watch checks) go through `createServerFn`.
+- Anonymous sessions use Lovable Cloud anonymous auth so RLS applies uniformly and claiming an account is a straight user-id link.
 - Ported domain logic lives in `src/lib/corridor/*.ts` as pure, testable modules with no DOM dependencies.
 - The Python tools in `tools/` stay as build-time scripts — they are not part of the runtime.
 
-## Open questions
+## Note on the Anthropic key
 
-- Should the MVP require sign-in to use the workspace, or allow an anonymous trial session that can be claimed later?
-- Do you want to keep the current Claude model behaviour, or is switching to the Lovable AI Gateway's default model acceptable for the MVP?
-- Is the `hello@corridor.trade` mailto flow on the home page staying, or should "Request an analysis" become an in-app form?
+Keeping Claude means the app needs your own Anthropic API key stored as a project secret (billed to your Anthropic account). I'll ask for it securely at the point I wire up the chat endpoint — nothing to do now.
+
