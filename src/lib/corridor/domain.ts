@@ -1637,6 +1637,41 @@ function chokepointById(id) {
 }
 
 /* --------------------------------------------------------------------------
+   The geodatabase register
+
+   Corridor holds the FGDC metadata for the USGS Africa minerals and
+   infrastructure geodatabase, not the geodata. What that buys is the ability
+   to say precisely which layers exist and what fields they carry, and to point
+   at the DOI. It buys nothing else, and the caveat travels with it wherever it
+   is read so that constraint cannot be lost on the way to an answer.
+   -------------------------------------------------------------------------- */
+
+const GIS = { register: null, loading: null, failed: false };
+
+async function loadGisRegister() {
+  if (GIS.register) return GIS.register;
+  if (GIS.loading) return GIS.loading;
+  GIS.loading = (async () => {
+    try {
+      GIS.register = await fetch(dataUrl("/data/africa-gis-layers.json")).then(r => r.json());
+      return GIS.register;
+    } catch (err) {
+      console.warn("Geodatabase register unavailable:", err);
+      GIS.failed = true;
+      return null;
+    }
+  })();
+  return GIS.loading;
+}
+
+/* The dataset entry is the single place the caveat is written down, so read it
+   from there rather than restating it and letting the two drift. */
+function gisCaveat() {
+  const entry = DATASETS.find(d => d.localPath === "data/africa-gis-layers.json");
+  return entry ? entry.caveats : null;
+}
+
+/* --------------------------------------------------------------------------
    Projection
 
    The world is drawn on a fixed 360 x 180 viewBox so every coordinate is
@@ -1839,6 +1874,13 @@ const PORTS = {
   USGC: { name: "Houston",      lat: 29.73,  lon: -95.27, coast: "US Gulf" },
   USWC: { name: "Long Beach",   lat: 33.75,  lon: -118.21, coast: "US West" },
 
+  /* European destinations. Rotterdam stands for the continent and Felixstowe
+     for the UK, the same way one US port stands for its whole coast. The GB
+     entry further down is the origin-side port for British exports and names
+     the same quay; a lane to the UK resolves here. */
+  EU:   { name: "Rotterdam",    lat: 51.95,  lon: 4.14,   coast: "North Europe" },
+  UK:   { name: "Felixstowe",   lat: 51.95,  lon: 1.31,   coast: "UK" },
+
   /* East and southern Africa */
   KE: { name: "Mombasa",        lat: -4.06,  lon: 39.67 },
   TZ: { name: "Dar es Salaam",  lat: -6.82,  lon: 39.30 },
@@ -1910,7 +1952,9 @@ const PORTS = {
 const DESTINATIONS = [
   { id: "USEC", label: "US East Coast" },
   { id: "USGC", label: "US Gulf Coast" },
-  { id: "USWC", label: "US West Coast" }
+  { id: "USWC", label: "US West Coast" },
+  { id: "EU",   label: "North Europe" },
+  { id: "UK",   label: "United Kingdom" }
 ];
 
 function portFor(code) {
@@ -1962,29 +2006,43 @@ const CP = {
 const ROUTE_TABLE = {
   /* Indian Ocean to the US Atlantic runs up the Red Sea, through Suez, then
      out past Gibraltar. To the US Pacific it crosses the Indian Ocean and the
-     Pacific instead, passing Malacca. */
+     Pacific instead, passing Malacca. North Europe reads the same as the US
+     Atlantic as far as Gibraltar, which is where an Atlantic run exits the
+     Mediterranean whether it is bound for New York or Rotterdam. */
   eafrica:  { USEC: [CP.babElMandeb, CP.suez, CP.gibraltar],
               USGC: [CP.babElMandeb, CP.suez, CP.gibraltar],
-              USWC: [CP.malacca] },
+              USWC: [CP.malacca],
+              EU:   [CP.babElMandeb, CP.suez, CP.gibraltar],
+              UK:   [CP.babElMandeb, CP.suez, CP.gibraltar] },
   sasia:    { USEC: [CP.babElMandeb, CP.suez, CP.gibraltar],
               USGC: [CP.babElMandeb, CP.suez, CP.gibraltar],
-              USWC: [CP.malacca] },
+              USWC: [CP.malacca],
+              EU:   [CP.babElMandeb, CP.suez, CP.gibraltar],
+              UK:   [CP.babElMandeb, CP.suez, CP.gibraltar] },
   meast:    { USEC: [CP.suez, CP.gibraltar],
               USGC: [CP.suez, CP.gibraltar],
-              USWC: [CP.hormuz, CP.malacca] },
+              USWC: [CP.hormuz, CP.malacca],
+              EU:   [CP.suez, CP.gibraltar],
+              UK:   [CP.suez, CP.gibraltar] },
 
   /* Southern Africa is already south of Suez, so an Atlantic run is direct. */
-  safrica:  { USEC: [], USGC: [], USWC: [CP.malacca] },
-  wafrica:  { USEC: [], USGC: [], USWC: [CP.panama] },
-  nafrica:  { USEC: [CP.gibraltar], USGC: [CP.gibraltar], USWC: [CP.gibraltar, CP.panama] },
+  safrica:  { USEC: [], USGC: [], USWC: [CP.malacca], EU: [], UK: [] },
+  wafrica:  { USEC: [], USGC: [], USWC: [CP.panama],  EU: [], UK: [] },
+  nafrica:  { USEC: [CP.gibraltar], USGC: [CP.gibraltar],
+              USWC: [CP.gibraltar, CP.panama],
+              EU:   [CP.gibraltar], UK: [CP.gibraltar] },
 
   /* East Asia to the US West is a straight Pacific crossing with no
-     chokepoint at all. Eastbound to the Atlantic it takes Panama. */
-  seasia:   { USEC: [CP.panama], USGC: [CP.panama], USWC: [] },
+     chokepoint at all. Eastbound to the Atlantic it takes Panama. Westbound to
+     Europe it runs the long Asia trade: Malacca, the Red Sea, Suez, Gibraltar.
+     That is the routing a Suez closure diverts round the Cape. */
+  seasia:   { USEC: [CP.panama], USGC: [CP.panama], USWC: [],
+              EU:   [CP.malacca, CP.babElMandeb, CP.suez, CP.gibraltar],
+              UK:   [CP.malacca, CP.babElMandeb, CP.suez, CP.gibraltar] },
 
-  europe:   { USEC: [], USGC: [], USWC: [CP.panama] },
-  latam:    { USEC: [], USGC: [], USWC: [CP.panama] },
-  namerica: { USEC: [], USGC: [], USWC: [] }
+  europe:   { USEC: [], USGC: [], USWC: [CP.panama], EU: [], UK: [] },
+  latam:    { USEC: [], USGC: [], USWC: [CP.panama], EU: [], UK: [] },
+  namerica: { USEC: [], USGC: [], USWC: [], EU: [], UK: [] }
 };
 
 /* With Suez disrupted, Indian Ocean traffic to the Atlantic goes round the
@@ -1993,17 +2051,24 @@ const ROUTE_TABLE = {
 const CAPE_ROUTE = {
   eafrica: [CP.cape],
   sasia:   [CP.cape],
-  meast:   [CP.hormuz, CP.cape]
+  meast:   [CP.hormuz, CP.cape],
+  seasia:  [CP.malacca, CP.cape]
 };
 
+/* A Cape diversion only means anything on a lane that would otherwise transit
+   Suez. East Africa to the US West Coast crosses the Indian Ocean and the
+   Pacific and never goes near the canal, so routing it round the Cape on a
+   Red Sea closure would be a fiction. Gate the diversion on the standard
+   route for that destination actually containing Suez. */
 function routeFor(origin, destination, { viaCape = false } = {}) {
   const region = regionOf(origin);
   if (!region) return { chokepoints: [], basis: "unknown" };
-  if (viaCape && CAPE_ROUTE[region]) {
+  const table = ROUTE_TABLE[region] || {};
+  const standard = table[destination] || [];
+  if (viaCape && CAPE_ROUTE[region] && standard.includes(CP.suez)) {
     return { chokepoints: CAPE_ROUTE[region].slice(), basis: "cape" };
   }
-  const table = ROUTE_TABLE[region] || {};
-  return { chokepoints: (table[destination] || []).slice(), basis: "table" };
+  return { chokepoints: standard.slice(), basis: "table" };
 }
 
 /* Origin port, each chokepoint in order, destination port. This is what the
@@ -2605,6 +2670,9 @@ export {
   GEO,
   loadGeo,
   chokepointById,
+  GIS,
+  loadGisRegister,
+  gisCaveat,
   MAP_VIEW,
   project,
   ringPath,
