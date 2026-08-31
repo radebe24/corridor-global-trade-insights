@@ -178,6 +178,7 @@ async function runLoop(
     for (const block of blocks) {
       if (block.type === "text" && block.text?.trim()) {
         emit({ type: kind, text: block.text.trim() });
+        if (kind === "text") answer += (answer ? "\n\n" : "") + block.text.trim();
       }
       if (block.type === "server_tool_use" && block.name === "web_search") {
         emit({ type: "tool", tool: "web_search", input: block.input });
@@ -188,8 +189,10 @@ async function runLoop(
 
     if (!toolUses.length) {
       emit({ type: "done", stop: reply.stop_reason ?? "end_turn" });
+      if (answer) await suggestFollowups(apiKey, question, answer, emit);
       return;
     }
+
 
     const results: any[] = [];
     for (const use of toolUses) {
