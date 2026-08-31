@@ -5588,3 +5588,49 @@ body.no-scroll { overflow: hidden; }
 .intel-example:hover span {
   opacity: 0.6;
 }
+
+/* Ask Corridor: per-answer controls and suggested follow-ups. */
+.intel-actions {
+  display: flex;
+  gap: 16px;
+  margin-top: 14px;
+}
+
+.intel-action {
+  appearance: none;
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-on-surface-muted);
+  transition: color 0.15s ease;
+}
+
+.intel-action:hover:not(:disabled) {
+  color: var(--color-on-surface);
+}
+
+.intel-action:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.intel-followups {
+  display: grid;
+  gap: 0;
+  margin-top: 26px;
+  border-top: 1px solid var(--color-border-soft);
+}
+
+.intel-followups .section-eyebrow {
+  padding: 14px 0 8px;
+}
+
+.intel-example:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
