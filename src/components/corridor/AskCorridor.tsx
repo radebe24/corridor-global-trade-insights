@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 import { Link } from "@tanstack/react-router";
 
 import { supabase } from "@/integrations/supabase/client";
@@ -12,10 +12,12 @@ type Turn = {
   question: string;
   steps: Step[];
   answer: string;
+  followups: string[];
   error?: string;
   running: boolean;
+  stopped?: boolean;
+  seconds?: number;
 };
-
 
 const EXAMPLES = [
   "What duty would we pay importing cotton knit t-shirts from Kenya versus Vietnam on a $2m order, and does AGOA change it?",
@@ -29,10 +31,16 @@ export function AskCorridor() {
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const scroller = useRef<HTMLDivElement>(null);
+  const abort = useRef<AbortController | null>(null);
+  /* The conversation as Claude will see it on the next question. Only plain
+     text turns: the tool blocks belong to the run that produced them. */
+  const history = useRef<{ role: "user" | "assistant"; content: string }[]>([]);
 
   useEffect(() => {
     scroller.current?.scrollTo({ top: scroller.current.scrollHeight, behavior: "smooth" });
   }, [turns]);
+
+  useEffect(() => () => abort.current?.abort(), []);
 
   async function ask(question: string) {
     if (!question.trim() || busy) return;
@@ -40,10 +48,15 @@ export function AskCorridor() {
     setInput("");
 
     const index = turns.length;
-    setTurns((prev) => [...prev, { question, steps: [], answer: "", running: true }]);
+    const started = Date.now();
+    setTurns((prev) => [...prev, { question, steps: [], answer: "", followups: [], running: true }]);
 
     const update = (fn: (turn: Turn) => Turn) =>
       setTurns((prev) => prev.map((t, i) => (i === index ? fn(t) : t)));
+
+    const controller = new AbortController();
+    abort.current = controller;
+    let answerText = "";
 
     try {
       let { data: sessionData } = await supabase.auth.getSession();
@@ -56,11 +69,12 @@ export function AskCorridor() {
 
       const response = await fetch("/api/ask", {
         method: "POST",
+        signal: controller.signal,
         headers: {
           "Content-Type": "application/json",
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
-        body: JSON.stringify({ question }),
+        body: JSON.stringify({ question, history: history.current.slice(-12) }),
       });
 
       if (!response.ok || !response.body) {
@@ -90,6 +104,7 @@ export function AskCorridor() {
           }
 
           if (event.type === "text") {
+            answerText = answerText ? `${answerText}\n\n${event.text}` : event.text;
             update((t) => ({
               ...t,
               answer: t.answer ? `${t.answer}\n\n${event.text}` : event.text,
@@ -101,7 +116,6 @@ export function AskCorridor() {
               ...t,
               steps: [...t.steps, { kind: "tool", tool: event.tool, input: event.input }],
             }));
-
           } else if (event.type === "tool_result") {
             update((t) => {
               const steps = [...t.steps];
@@ -114,20 +128,37 @@ export function AskCorridor() {
               }
               return { ...t, steps };
             });
+          } else if (event.type === "followups") {
+            const items = Array.isArray(event.items) ? event.items.map(String) : [];
+            update((t) => ({ ...t, followups: items }));
           } else if (event.type === "error") {
             update((t) => ({ ...t, error: event.message }));
           }
         }
       }
 
-      update((t) => ({ ...t, running: false }));
+      if (answerText) {
+        history.current = [
+          ...history.current,
+          { role: "user", content: question },
+          { role: "assistant", content: answerText },
+        ].slice(-12);
+      }
+
+      update((t) => ({ ...t, running: false, seconds: Math.round((Date.now() - started) / 1000) }));
     } catch (err) {
+      const aborted = err instanceof DOMException && err.name === "AbortError";
       update((t) => ({
         ...t,
         running: false,
-        error: err instanceof Error ? err.message : "Corridor could not answer.",
+        stopped: aborted,
+        seconds: Math.round((Date.now() - started) / 1000),
+        ...(aborted
+          ? {}
+          : { error: err instanceof Error ? err.message : "Corridor could not answer." }),
       }));
     } finally {
+      abort.current = null;
       setBusy(false);
     }
   }
@@ -137,6 +168,22 @@ export function AskCorridor() {
     void ask(input);
   }
 
+  function onKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
+    if (event.key === "Enter" && !event.shiftKey) {
+      event.preventDefault();
+      void ask(input);
+    }
+  }
+
+  function reset() {
+    abort.current?.abort();
+    history.current = [];
+    setTurns([]);
+    setInput("");
+  }
+
+  const last = turns[turns.length - 1];
+
   return (
     <div className="app">
       <nav className="nav">
@@ -145,12 +192,11 @@ export function AskCorridor() {
             <span>Corridor</span>
           </Link>
           <div className="nav-links">
-            <Link className="nav-link" to="/workspace">
-              Workspace
-            </Link>
-            <Link className="nav-link" to="/request">
-              Request an analysis
-            </Link>
+            {turns.length ? (
+              <button type="button" className="nav-link" onClick={reset}>
+                New conversation
+              </button>
+            ) : null}
             <Link className="nav-link" to="/auth">
               Account
             </Link>
@@ -167,7 +213,8 @@ export function AskCorridor() {
           <p className="usecases-sub">
             Tariffs, eligibility, commodity and corridor exposure, and what-if scenarios, any origin
             and any corridor. Corridor queries its own assembled data first, searches the open web
-            where the data does not reach, and shows every step it took.
+            where the data does not reach, and shows every step it took. Ask a follow-up and it
+            keeps the thread.
           </p>
 
           {/* What moved since the last visit, before the reader thinks of a
@@ -191,10 +238,15 @@ export function AskCorridor() {
             </div>
           ) : null}
 
-
           <div ref={scroller} style={{ marginTop: 32, display: "grid", gap: 40 }}>
             {turns.map((turn, index) => (
-              <TurnView key={index} turn={turn} />
+              <TurnView
+                key={index}
+                turn={turn}
+                onFollowup={(q) => void ask(q)}
+                onRetry={() => void ask(turn.question)}
+                busy={busy}
+              />
             ))}
           </div>
 
@@ -209,20 +261,42 @@ export function AskCorridor() {
               marginTop: 32,
               display: "flex",
               gap: 12,
+              alignItems: "flex-end",
             }}
           >
-            <input
+            <textarea
               className="api-key-input"
-              style={{ flex: 1 }}
+              rows={1}
+              style={{ flex: 1, resize: "none", minHeight: 46, lineHeight: 1.5 }}
               value={input}
               onChange={(event) => setInput(event.target.value)}
-              placeholder="Ask about a duty, an eligibility, a corridor, or a what-if…"
+              onKeyDown={onKeyDown}
+              placeholder={
+                turns.length
+                  ? "Ask a follow-up, or change the scenario…"
+                  : "Ask about a duty, an eligibility, a corridor, or a what-if…"
+              }
             />
-            <button className="btn-primary" type="submit" disabled={busy}>
+            {busy ? (
+              <button
+                className="btn-secondary"
+                type="button"
+                onClick={() => abort.current?.abort()}
+              >
+                Stop
+              </button>
+            ) : null}
+            <button className="btn-primary" type="submit" disabled={busy || !input.trim()}>
               {busy ? "Working…" : "Ask"}
               <span className="btn-arrow">→</span>
             </button>
           </form>
+
+          {last?.running ? (
+            <div className="how-copy" style={{ marginTop: -8 }}>
+              Corridor is working through it. Long questions take a minute.
+            </div>
+          ) : null}
         </div>
       </main>
     </div>
@@ -281,9 +355,30 @@ function inline(text: string) {
   });
 }
 
-function TurnView({ turn }: { turn: Turn }) {
+function TurnView({
+  turn,
+  onFollowup,
+  onRetry,
+  busy,
+}: {
+  turn: Turn;
+  onFollowup: (question: string) => void;
+  onRetry: () => void;
+  busy: boolean;
+}) {
+  const [copied, setCopied] = useState(false);
   const done = turn.steps.filter((s) => s.kind === "tool" && s.result).length;
   const total = turn.steps.filter((s) => s.kind === "tool").length;
+
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(turn.answer);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1600);
+    } catch {
+      /* clipboard blocked; nothing worth saying */
+    }
+  }
 
   return (
     <article className="intel-turn">
@@ -293,6 +388,7 @@ function TurnView({ turn }: { turn: Turn }) {
         <div className="intel-steps">
           <div className="section-eyebrow">
             What Corridor did{total ? ` — ${done}/${total} checks` : ""}
+            {turn.seconds ? ` — ${turn.seconds}s` : ""}
           </div>
           {turn.steps.map((step, index) =>
             step.kind === "note" ? (
@@ -314,12 +410,55 @@ function TurnView({ turn }: { turn: Turn }) {
       ) : null}
 
       {turn.answer ? (
-        <AnswerBody text={turn.answer} />
+        <>
+          <AnswerBody text={turn.answer} />
+          <div className="intel-actions">
+            <button type="button" className="intel-action" onClick={() => void copy()}>
+              {copied ? "Copied" : "Copy answer"}
+            </button>
+            <button type="button" className="intel-action" onClick={onRetry} disabled={busy}>
+              Run again
+            </button>
+          </div>
+        </>
       ) : turn.running ? (
         <div className="how-copy">Working through it…</div>
       ) : null}
 
-      {turn.error ? <div className="intel-error">{turn.error}</div> : null}
+      {turn.stopped ? <div className="how-copy">Stopped.</div> : null}
+
+      {turn.followups.length ? (
+        <div className="intel-followups">
+          <div className="section-eyebrow">Ask next</div>
+          {turn.followups.map((question) => (
+            <button
+              key={question}
+              type="button"
+              className="intel-example"
+              onClick={() => onFollowup(question)}
+              disabled={busy}
+            >
+              {question}
+              <span aria-hidden>→</span>
+            </button>
+          ))}
+        </div>
+      ) : null}
+
+      {turn.error ? (
+        <div className="intel-error">
+          {turn.error}
+          <button
+            type="button"
+            className="intel-action"
+            onClick={onRetry}
+            disabled={busy}
+            style={{ marginLeft: 12 }}
+          >
+            Try again
+          </button>
+        </div>
+      ) : null}
     </article>
   );
 }
