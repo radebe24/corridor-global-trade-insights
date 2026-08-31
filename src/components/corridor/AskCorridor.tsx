@@ -280,7 +280,7 @@ export function AskCorridor() {
             />
             {busy ? (
               <button
-                className="btn-secondary"
+                className="btn-ghost"
                 type="button"
                 onClick={() => abort.current?.abort()}
               >
