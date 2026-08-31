@@ -271,8 +271,16 @@ export const Route = createFileRoute("/api/ask")({
                 message: err instanceof Error ? err.message : "Corridor could not finish that.",
               });
             } finally {
-              controller.close();
+              if (!closed) {
+                closed = true;
+                try {
+                  controller.close();
+                } catch {
+                  /* the reader went away first */
+                }
+              }
             }
+
           },
         });
 
