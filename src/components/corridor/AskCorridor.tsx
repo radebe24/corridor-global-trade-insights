@@ -140,10 +140,11 @@ export function AskCorridor() {
       if (answerText) {
         history.current = [
           ...history.current,
-          { role: "user", content: question },
-          { role: "assistant", content: answerText },
+          { role: "user" as const, content: question },
+          { role: "assistant" as const, content: answerText },
         ].slice(-12);
       }
+
 
       update((t) => ({ ...t, running: false, seconds: Math.round((Date.now() - started) / 1000) }));
     } catch (err) {
