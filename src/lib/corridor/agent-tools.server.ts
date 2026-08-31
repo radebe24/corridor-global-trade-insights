@@ -75,7 +75,8 @@ export const CORRIDOR_TOOLS = [
       properties: {
         query: {
           type: "string",
-          description: "Product description or partial HTS code, e.g. 'cotton knit t-shirts' or '6109'",
+          description:
+            "Product description or partial HTS code, e.g. 'cotton knit t-shirts' or '6109'",
         },
         limit: { type: "number", description: "How many candidate lines to return (default 12)" },
       },
@@ -90,13 +91,20 @@ export const CORRIDOR_TOOLS = [
       type: "object",
       properties: {
         hts: { type: "string", description: "The 8 or 10 digit HTS code" },
-        origin: { type: "string", description: "ISO 2-letter origin country code, e.g. VN, KE, CN" },
+        origin: {
+          type: "string",
+          description: "ISO 2-letter origin country code, e.g. VN, KE, CN",
+        },
         value_usd: { type: "number", description: "Customs value of the shipment in US dollars" },
-        quantity: { type: "number", description: "Quantity in the line's own unit, when the rate is specific" },
+        quantity: {
+          type: "number",
+          description: "Quantity in the line's own unit, when the rate is specific",
+        },
         mode: { type: "string", description: "ocean or air; affects HMF. Default ocean." },
         claim_preferences: {
           type: "boolean",
-          description: "Whether to claim eligible preference programmes. Set false to price the no-claim case.",
+          description:
+            "Whether to claim eligible preference programmes. Set false to price the no-claim case.",
         },
       },
       required: ["hts", "origin", "value_usd"],
@@ -129,7 +137,10 @@ export const CORRIDOR_TOOLS = [
       type: "object",
       properties: {
         country: { type: "string", description: "ISO 2-letter country code" },
-        hts: { type: "string", description: "Optional HTS code, to narrow trade actions to that line" },
+        hts: {
+          type: "string",
+          description: "Optional HTS code, to narrow trade actions to that line",
+        },
       },
       required: ["country"],
     },
@@ -143,7 +154,8 @@ export const CORRIDOR_TOOLS = [
       properties: {
         question: {
           type: "string",
-          description: "The commodity question in plain language; commodities and countries are matched from it.",
+          description:
+            "The commodity question in plain language; commodities and countries are matched from it.",
         },
       },
       required: ["question"],
@@ -164,7 +176,8 @@ export const CORRIDOR_TOOLS = [
         product: { type: "string", description: "Optional product name for the lane label" },
         via_cape: {
           type: "boolean",
-          description: "Route around the Cape of Good Hope instead of Suez, for a Red Sea diversion scenario.",
+          description:
+            "Route around the Cape of Good Hope instead of Suez, for a Red Sea diversion scenario.",
         },
       },
       required: ["origin"],
@@ -204,11 +217,37 @@ export const CORRIDOR_TOOLS = [
   },
 ];
 
-
 const STOP = new Set([
-  "the","a","an","of","for","and","or","with","without","from","to","in","on",
-  "other","others","not","elsewhere","specified","included","goods","products",
-  "made","type","types","kind","kinds","item","items","us","usa",
+  "the",
+  "a",
+  "an",
+  "of",
+  "for",
+  "and",
+  "or",
+  "with",
+  "without",
+  "from",
+  "to",
+  "in",
+  "on",
+  "other",
+  "others",
+  "not",
+  "elsewhere",
+  "specified",
+  "included",
+  "goods",
+  "products",
+  "made",
+  "type",
+  "types",
+  "kind",
+  "kinds",
+  "item",
+  "items",
+  "us",
+  "usa",
 ]);
 
 /* The original search matched the whole phrase as a substring, which is right
@@ -271,14 +310,16 @@ export async function ensureCorridorData() {
 }
 
 function normalizeName(value: string) {
-  return String(value ?? "")
-    .toLowerCase()
-    .replace(/[^a-z0-9\s]/g, " ")
-    /* Generic geography words only. "Cape", "Good" and "Hope" are the name of
+  return (
+    String(value ?? "")
+      .toLowerCase()
+      .replace(/[^a-z0-9\s]/g, " ")
+      /* Generic geography words only. "Cape", "Good" and "Hope" are the name of
        the Cape of Good Hope, not noise, and stripping them left it unfindable. */
-    .replace(/\b(the|strait|straits|canal|of|passage)\b/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
+      .replace(/\b(the|strait|straits|canal|of|passage)\b/g, " ")
+      .replace(/\s+/g, " ")
+      .trim()
+  );
 }
 
 /* Which lanes depend on a chokepoint. The route table says, for each origin
@@ -363,8 +404,7 @@ export async function runCorridorTool(name: string, raw: Record<string, any>): P
             duty,
             saving_vs_priced: Math.max(0, (result.duty ?? 0) - duty),
             requirement: opportunity.requirement,
-            note:
-              "Conditional. This is the duty if the goods qualify; the priced figure above is the duty if they do not. State both.",
+            note: "Conditional. This is the duty if the goods qualify; the priced figure above is the duty if they do not. State both.",
           };
         }
 
@@ -426,7 +466,13 @@ export async function runCorridorTool(name: string, raw: Record<string, any>): P
 
       case "lookup_commodity": {
         const ctx = await mcsContextFor(String(input.question ?? ""));
-        if (!ctx) return { ok: true, provenance: MCS_SOURCE, rows: [], note: "No bundled commodity record matched." };
+        if (!ctx)
+          return {
+            ok: true,
+            provenance: MCS_SOURCE,
+            rows: [],
+            note: "No bundled commodity record matched.",
+          };
         return { ok: true, provenance: MCS_SOURCE, ...ctx };
       }
 
@@ -448,20 +494,19 @@ export async function runCorridorTool(name: string, raw: Record<string, any>): P
         lane.route = routeFor(origin, destination, { viaCape: input.via_cape === true });
 
         /* Resolved records, not bare ids. The model cannot cite "chokepoint4". */
-        const chokepoints = (lane.route?.chokepoints ?? [])
-          .map((id: string) => {
-            const c = chokepointById(id);
-            return c
-              ? {
-                  id,
-                  name: c.name,
-                  lat: c.lat,
-                  lon: c.lon,
-                  vessels_per_year: c.vessels ?? null,
-                  industries: c.industries ?? [],
-                }
-              : { id, name: null, note: "Not in the bundled chokepoint register." };
-          });
+        const chokepoints = (lane.route?.chokepoints ?? []).map((id: string) => {
+          const c = chokepointById(id);
+          return c
+            ? {
+                id,
+                name: c.name,
+                lat: c.lat,
+                lon: c.lon,
+                vessels_per_year: c.vessels ?? null,
+                industries: c.industries ?? [],
+              }
+            : { id, name: null, note: "Not in the bundled chokepoint register." };
+        });
 
         return {
           ok: true,
@@ -486,7 +531,7 @@ export async function runCorridorTool(name: string, raw: Record<string, any>): P
 
       case "chokepoint_profile": {
         await ensureGeo();
-        const all: any[] = ((GEO as any).chokepoints?.chokepoints ?? []);
+        const all: any[] = (GEO as any).chokepoints?.chokepoints ?? [];
         const register = (GEO as any).chokepoints ?? {};
         const query = String(input.chokepoint ?? "").trim();
 
@@ -557,13 +602,19 @@ export async function runCorridorTool(name: string, raw: Record<string, any>): P
         if (!register) {
           return { ok: false, error: "The geodatabase register is not available." };
         }
-        const topic = String(input.topic ?? "").trim().toLowerCase();
+        const topic = String(input.topic ?? "")
+          .trim()
+          .toLowerCase();
         const layers: any[] = register.layers ?? [];
         const selected = topic
           ? layers.filter(
               (l) =>
-                String(l.name ?? "").toLowerCase().includes(topic) ||
-                String(l.description ?? "").toLowerCase().includes(topic),
+                String(l.name ?? "")
+                  .toLowerCase()
+                  .includes(topic) ||
+                String(l.description ?? "")
+                  .toLowerCase()
+                  .includes(topic),
             )
           : layers;
 

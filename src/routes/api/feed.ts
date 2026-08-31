@@ -32,7 +32,8 @@ export const Route = createFileRoute("/api/feed")({
 
         const supabase = userClient(token);
         const { data: user, error: authError } = await supabase.auth.getUser(token);
-        if (authError || !user.user) return new Response("Sign in to read the feed.", { status: 401 });
+        if (authError || !user.user)
+          return new Response("Sign in to read the feed.", { status: 401 });
 
         const { data: rows, error } = await supabase.from("projects").select("id, name, data");
         if (error) return Response.json({ error: error.message }, { status: 500 });
@@ -42,9 +43,10 @@ export const Route = createFileRoute("/api/feed")({
         /* The feed reads across every project the caller owns, not just the
            active one. A lane that moved in a project they are not looking at
            is exactly the thing they would otherwise miss. */
-        const lanes: any[] = [];
+        type Lane = { label?: string };
+        const lanes: Lane[] = [];
         for (const row of rows ?? []) {
-          const project = (row.data ?? {}) as any;
+          const project = (row.data ?? {}) as { lanes?: Lane[] };
           for (const lane of project.lanes ?? []) {
             lanes.push({
               ...lane,

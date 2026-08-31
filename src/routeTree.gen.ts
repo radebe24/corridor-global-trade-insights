@@ -13,8 +13,11 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as IntelRouteImport } from './routes/intel'
 import { Route as RequestRouteImport } from './routes/request'
+import { Route as WorkspaceRouteImport } from './routes/workspace'
 import { Route as ApiAnthropicRouteImport } from './routes/api/anthropic'
 import { Route as ApiAskRouteImport } from './routes/api/ask'
+import { Route as ApiFeedRouteImport } from './routes/api/feed'
+import { Route as ApiWatchRunRouteImport } from './routes/api/watch-run'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -36,6 +39,11 @@ const RequestRoute = RequestRouteImport.update({
   path: '/request',
   getParentRoute: () => rootRouteImport,
 } as any)
+const WorkspaceRoute = WorkspaceRouteImport.update({
+  id: '/workspace',
+  path: '/workspace',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiAnthropicRoute = ApiAnthropicRouteImport.update({
   id: '/api/anthropic',
   path: '/api/anthropic',
@@ -46,22 +54,38 @@ const ApiAskRoute = ApiAskRouteImport.update({
   path: '/api/ask',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiFeedRoute = ApiFeedRouteImport.update({
+  id: '/api/feed',
+  path: '/api/feed',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiWatchRunRoute = ApiWatchRunRouteImport.update({
+  id: '/api/watch-run',
+  path: '/api/watch-run',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/intel': typeof IntelRoute
   '/request': typeof RequestRoute
+  '/workspace': typeof WorkspaceRoute
   '/api/anthropic': typeof ApiAnthropicRoute
   '/api/ask': typeof ApiAskRoute
+  '/api/feed': typeof ApiFeedRoute
+  '/api/watch-run': typeof ApiWatchRunRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/intel': typeof IntelRoute
   '/request': typeof RequestRoute
+  '/workspace': typeof WorkspaceRoute
   '/api/anthropic': typeof ApiAnthropicRoute
   '/api/ask': typeof ApiAskRoute
+  '/api/feed': typeof ApiFeedRoute
+  '/api/watch-run': typeof ApiWatchRunRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -69,23 +93,46 @@ export interface FileRoutesById {
   '/auth': typeof AuthRoute
   '/intel': typeof IntelRoute
   '/request': typeof RequestRoute
+  '/workspace': typeof WorkspaceRoute
   '/api/anthropic': typeof ApiAnthropicRoute
   '/api/ask': typeof ApiAskRoute
+  '/api/feed': typeof ApiFeedRoute
+  '/api/watch-run': typeof ApiWatchRunRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
-    '/' | '/auth' | '/intel' | '/request' | '/api/anthropic' | '/api/ask'
+    | '/'
+    | '/auth'
+    | '/intel'
+    | '/request'
+    | '/workspace'
+    | '/api/anthropic'
+    | '/api/ask'
+    | '/api/feed'
+    | '/api/watch-run'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/auth' | '/intel' | '/request' | '/api/anthropic' | '/api/ask'
+  to:
+    | '/'
+    | '/auth'
+    | '/intel'
+    | '/request'
+    | '/workspace'
+    | '/api/anthropic'
+    | '/api/ask'
+    | '/api/feed'
+    | '/api/watch-run'
   id:
     | '__root__'
     | '/'
     | '/auth'
     | '/intel'
     | '/request'
+    | '/workspace'
     | '/api/anthropic'
     | '/api/ask'
+    | '/api/feed'
+    | '/api/watch-run'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -93,8 +140,11 @@ export interface RootRouteChildren {
   AuthRoute: typeof AuthRoute
   IntelRoute: typeof IntelRoute
   RequestRoute: typeof RequestRoute
+  WorkspaceRoute: typeof WorkspaceRoute
   ApiAnthropicRoute: typeof ApiAnthropicRoute
   ApiAskRoute: typeof ApiAskRoute
+  ApiFeedRoute: typeof ApiFeedRoute
+  ApiWatchRunRoute: typeof ApiWatchRunRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -127,6 +177,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof RequestRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/workspace': {
+      id: '/workspace'
+      path: '/workspace'
+      fullPath: '/workspace'
+      preLoaderRoute: typeof WorkspaceRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/anthropic': {
       id: '/api/anthropic'
       path: '/api/anthropic'
@@ -141,6 +198,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAskRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/feed': {
+      id: '/api/feed'
+      path: '/api/feed'
+      fullPath: '/api/feed'
+      preLoaderRoute: typeof ApiFeedRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/watch-run': {
+      id: '/api/watch-run'
+      path: '/api/watch-run'
+      fullPath: '/api/watch-run'
+      preLoaderRoute: typeof ApiWatchRunRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -149,19 +220,12 @@ const rootRouteChildren: RootRouteChildren = {
   AuthRoute: AuthRoute,
   IntelRoute: IntelRoute,
   RequestRoute: RequestRoute,
+  WorkspaceRoute: WorkspaceRoute,
   ApiAnthropicRoute: ApiAnthropicRoute,
   ApiAskRoute: ApiAskRoute,
+  ApiFeedRoute: ApiFeedRoute,
+  ApiWatchRunRoute: ApiWatchRunRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}

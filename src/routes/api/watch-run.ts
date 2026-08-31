@@ -38,7 +38,22 @@ const ANTHROPIC_URL = "https://api.anthropic.com/v1/messages";
 const MAX_ITEMS_PER_RUN = 25;
 const CONCURRENCY = 3;
 
-type Candidate = { project: any; lane: any; item: any };
+/* The domain layer predates TypeScript and is checked with ts-nocheck, so its
+   shapes are described here at the boundary where they are actually used. */
+/* What a check answers with, and what it becomes once recorded. recordCheck()
+   is what stamps the time, so the two are not the same shape. */
+type CheckResult = {
+  status: "escalated" | "eased" | "unchanged" | "new";
+  state: string;
+  change: string;
+  source: string;
+};
+type CheckRecord = CheckResult & { checkedAt: number };
+type WatchItem = { id: string; subject: string; question: string; history?: CheckRecord[] };
+type Lane = { id: string; watch?: WatchItem[] };
+type ProjectRow = { rowId: string; data: { lanes?: Lane[] } | null };
+type Candidate = { project: ProjectRow; lane: Lane; item: WatchItem };
+type ContentBlock = { type: string; text?: string };
 
 function serviceClient() {
   const url = process.env["SUPABASE_URL"];
@@ -53,7 +68,7 @@ function serviceClient() {
    carries the prior state and pins the reply to four labelled lines, so there
    is nothing to parse loosely and no room for a fresh description where a diff
    was asked for. */
-async function checkItem(apiKey: string, item: any) {
+async function checkItem(apiKey: string, item: WatchItem): Promise<CheckResult> {
   const response = await fetch(ANTHROPIC_URL, {
     method: "POST",
     headers: {
@@ -75,13 +90,15 @@ async function checkItem(apiKey: string, item: any) {
     throw new Error(`Claude request failed [${response.status}]: ${await response.text()}`);
   }
 
-  const reply: any = await response.json();
+  const reply = (await response.json()) as { content?: ContentBlock[] };
   const text = (reply.content ?? [])
-    .filter((b: any) => b.type === "text")
-    .map((b: any) => b.text)
+    .filter((b) => b.type === "text")
+    .map((b) => b.text ?? "")
     .join("\n");
 
-  return parseWatchCheck(text);
+  /* parseWatchCheck falls back to "unchanged" for anything outside the four
+     statuses, so the narrowing is guaranteed there rather than here. */
+  return parseWatchCheck(text) as CheckResult;
 }
 
 /* Bounded fan-out. Promise.all over the whole batch would put 25 searches in
@@ -130,7 +147,10 @@ export const Route = createFileRoute("/api/watch-run")({
         /* Re-derive first. A lane whose route or HTS line changed gains and
            loses watch items, and the ones that survive keep their history. */
         const candidates: Candidate[] = [];
-        const projects = (rows ?? []).map((row) => ({ rowId: row.id, data: row.data as any }));
+        const projects: ProjectRow[] = (rows ?? []).map((row) => ({
+          rowId: row.id,
+          data: row.data as ProjectRow["data"],
+        }));
 
         for (const project of projects) {
           for (const lane of project.data?.lanes ?? []) {
@@ -151,7 +171,7 @@ export const Route = createFileRoute("/api/watch-run")({
 
         let moved = 0;
         const failures: { subject: string; error: string }[] = [];
-        const touched = new Set<any>();
+        const touched = new Set<ProjectRow>();
 
         await inBatches(batch, CONCURRENCY, async ({ project, item }) => {
           try {
