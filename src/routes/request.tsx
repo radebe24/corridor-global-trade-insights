@@ -81,7 +81,7 @@ function RequestAnalysis() {
             <span>Corridor</span>
           </Link>
           <div className="nav-links">
-            <Link className="nav-link" to="/">
+            <Link className="nav-link" to="/workspace">
               Back to the workspace
             </Link>
           </div>
@@ -104,7 +104,7 @@ function RequestAnalysis() {
               <div className="how-copy">
                 We have your sourcing book and will come back with the priced analysis and the
                 workbook behind it.{" "}
-                <Link to="/" className="nav-link">
+                <Link to="/workspace" className="nav-link">
                   Open the workspace
                 </Link>{" "}
                 in the meantime.
