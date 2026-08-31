@@ -245,19 +245,26 @@ export const Route = createFileRoute("/api/ask")({
 
         const question = typeof payload?.question === "string" ? payload.question.trim() : "";
         if (!question) return new Response("A question is required.", { status: 400 });
-        const history = Array.isArray(payload?.history) ? payload.history.slice(-12) : [];
+        const history = cleanHistory(payload?.history);
 
         useDataOrigin(new URL(request.url).origin);
 
         const encoder = new TextEncoder();
         const stream = new ReadableStream({
           async start(controller) {
+            let closed = false;
             const emit: Emit = (event) => {
-              controller.enqueue(encoder.encode(JSON.stringify(event) + "\n"));
+              if (closed) return;
+              try {
+                controller.enqueue(encoder.encode(JSON.stringify(event) + "\n"));
+              } catch {
+                closed = true;
+              }
             };
             try {
-              await runLoop(apiKey, question, history, emit);
+              await runLoop(apiKey, question, history, emit, request.signal);
             } catch (err) {
+
               console.error(err);
               emit({
                 type: "error",
