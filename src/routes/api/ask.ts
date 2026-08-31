@@ -16,7 +16,7 @@ import { MODEL } from "@/lib/corridor/model";
 
 const ANTHROPIC_URL = "https://api.anthropic.com/v1/messages";
 
-const MAX_STEPS = 8;
+const MAX_STEPS = 14;
 
 const SYSTEM_PROMPT = `You are Corridor, a trade and infrastructure intelligence analyst working globally.
 
