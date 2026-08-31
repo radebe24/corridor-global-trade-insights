@@ -109,7 +109,7 @@ function AuthPage() {
             <span>Corridor</span>
           </Link>
           <div className="nav-links">
-            <Link className="nav-link" to="/">
+            <Link className="nav-link" to="/workspace">
               Back to the workspace
             </Link>
           </div>

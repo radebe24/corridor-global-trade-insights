@@ -1,10 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-import { CorridorWorkspace } from "@/components/corridor/CorridorWorkspace";
+import { AskCorridor } from "@/components/corridor/AskCorridor";
 
-const title = "Corridor — Tariff and trade risk intelligence";
+const title = "Corridor — global trade and infrastructure intelligence";
 const description =
-  "Price the duty on your sourcing book, find the origins that cost less, and track the tariff and trade risk that threatens them. Public data, sourced on every figure.";
+  "Ask in plain language about tariffs, eligibility, trade and infrastructure flows, corridor and chokepoint exposure, and what-if scenarios. Any origin, any corridor. Every number carries its source.";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -21,5 +21,5 @@ export const Route = createFileRoute("/")({
 });
 
 function Index() {
-  return <CorridorWorkspace />;
+  return <AskCorridor />;
 }

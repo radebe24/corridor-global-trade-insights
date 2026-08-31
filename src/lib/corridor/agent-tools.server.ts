@@ -29,6 +29,15 @@ import {
   laneExposure,
   PORTS,
   DESTINATIONS,
+  GEO,
+  loadGeo,
+  chokepointById,
+  loadGisRegister,
+  gisCaveat,
+  ROUTE_TABLE,
+  CAPE_ROUTE,
+  REGIONS,
+  CP,
 } from "./domain";
 
 export type ToolResult = {
@@ -51,6 +60,10 @@ const HTS_SOURCE = "USITC Harmonized Tariff Schedule (2026 revision), bundled by
 const PROGRAM_SOURCE = `Corridor preference-programme register, as of ${COUNTRY_PROGRAMS_ASOF}`;
 const MCS_SOURCE = "USGS Mineral Commodity Summaries 2026, bundled by Corridor";
 const LANE_SOURCE = "Corridor port, route and chokepoint register";
+const CHOKEPOINT_SOURCE = "IMF PortWatch chokepoint register, bundled by Corridor";
+const GIS_SOURCE =
+  "USGS Compilation of Geospatial Data (GIS) for the Mineral Industries and " +
+  "Related Infrastructure of Africa, FGDC metadata bundled by Corridor";
 
 export const CORRIDOR_TOOLS = [
   {
@@ -62,7 +75,8 @@ export const CORRIDOR_TOOLS = [
       properties: {
         query: {
           type: "string",
-          description: "Product description or partial HTS code, e.g. 'cotton knit t-shirts' or '6109'",
+          description:
+            "Product description or partial HTS code, e.g. 'cotton knit t-shirts' or '6109'",
         },
         limit: { type: "number", description: "How many candidate lines to return (default 12)" },
       },
@@ -77,13 +91,20 @@ export const CORRIDOR_TOOLS = [
       type: "object",
       properties: {
         hts: { type: "string", description: "The 8 or 10 digit HTS code" },
-        origin: { type: "string", description: "ISO 2-letter origin country code, e.g. VN, KE, CN" },
+        origin: {
+          type: "string",
+          description: "ISO 2-letter origin country code, e.g. VN, KE, CN",
+        },
         value_usd: { type: "number", description: "Customs value of the shipment in US dollars" },
-        quantity: { type: "number", description: "Quantity in the line's own unit, when the rate is specific" },
+        quantity: {
+          type: "number",
+          description: "Quantity in the line's own unit, when the rate is specific",
+        },
         mode: { type: "string", description: "ocean or air; affects HMF. Default ocean." },
         claim_preferences: {
           type: "boolean",
-          description: "Whether to claim eligible preference programmes. Set false to price the no-claim case.",
+          description:
+            "Whether to claim eligible preference programmes. Set false to price the no-claim case.",
         },
       },
       required: ["hts", "origin", "value_usd"],
@@ -116,7 +137,10 @@ export const CORRIDOR_TOOLS = [
       type: "object",
       properties: {
         country: { type: "string", description: "ISO 2-letter country code" },
-        hts: { type: "string", description: "Optional HTS code, to narrow trade actions to that line" },
+        hts: {
+          type: "string",
+          description: "Optional HTS code, to narrow trade actions to that line",
+        },
       },
       required: ["country"],
     },
@@ -130,7 +154,8 @@ export const CORRIDOR_TOOLS = [
       properties: {
         question: {
           type: "string",
-          description: "The commodity question in plain language; commodities and countries are matched from it.",
+          description:
+            "The commodity question in plain language; commodities and countries are matched from it.",
         },
       },
       required: ["question"],
@@ -151,19 +176,78 @@ export const CORRIDOR_TOOLS = [
         product: { type: "string", description: "Optional product name for the lane label" },
         via_cape: {
           type: "boolean",
-          description: "Route around the Cape of Good Hope instead of Suez, for a Red Sea diversion scenario.",
+          description:
+            "Route around the Cape of Good Hope instead of Suez, for a Red Sea diversion scenario.",
         },
       },
       required: ["origin"],
     },
   },
+  {
+    name: "chokepoint_profile",
+    description:
+      "Profile one maritime chokepoint: the traffic that moves through it by vessel type, the industries it carries, and which origin regions and destinations route through it. Use this for 'what happens if X closes', for exposure questions about a named strait or canal, and whenever a lane trace returns a chokepoint you need to say more about. The bundled figures are annual traffic composition, not live status; search for current disruption separately.",
+    input_schema: {
+      type: "object",
+      properties: {
+        chokepoint: {
+          type: "string",
+          description:
+            "Chokepoint name or partial name, e.g. 'Suez', 'Bab el-Mandeb', 'Strait of Hormuz'. Omit to list every chokepoint Corridor holds.",
+        },
+      },
+      required: [],
+    },
+  },
+  {
+    name: "infrastructure_coverage",
+    description:
+      "Report what the USGS Africa minerals and infrastructure geodatabase covers: which layers exist (mineral facilities, deposits, exploration sites, ports, rail, road, pipelines, LNG terminals, power stations and transmission) and what fields they carry. Use this to answer what infrastructure data exists for an African country or commodity, and to point a user at the source. Corridor holds the metadata for this geodatabase, not the geodata, so this tool can describe coverage and cite the DOI but returns no coordinates, counts or capacities.",
+    input_schema: {
+      type: "object",
+      properties: {
+        topic: {
+          type: "string",
+          description:
+            "Optional filter, e.g. 'rail', 'ports', 'power', 'copper'. Omit to return the full layer register.",
+        },
+      },
+      required: [],
+    },
+  },
 ];
 
-
 const STOP = new Set([
-  "the","a","an","of","for","and","or","with","without","from","to","in","on",
-  "other","others","not","elsewhere","specified","included","goods","products",
-  "made","type","types","kind","kinds","item","items","us","usa",
+  "the",
+  "a",
+  "an",
+  "of",
+  "for",
+  "and",
+  "or",
+  "with",
+  "without",
+  "from",
+  "to",
+  "in",
+  "on",
+  "other",
+  "others",
+  "not",
+  "elsewhere",
+  "specified",
+  "included",
+  "goods",
+  "products",
+  "made",
+  "type",
+  "types",
+  "kind",
+  "kinds",
+  "item",
+  "items",
+  "us",
+  "usa",
 ]);
 
 /* The original search matched the whole phrase as a substring, which is right
@@ -208,6 +292,64 @@ function searchHtsSmart(query: string, limit: number) {
 
 async function ensureTariffs() {
   await loadTariffs();
+}
+
+/* The browser workspace calls loadGeo() on boot. The agent runs on the server,
+   where nothing had ever called it, so chokepointById() read an unpopulated map
+   and every lane trace came back with its chokepoints silently dropped. */
+async function ensureGeo() {
+  await loadGeo();
+}
+
+/* Everything a server-side caller needs in memory before it asks the domain
+   layer anything. The watch runner needs both: tariffs to price a lane's
+   exposure, and the chokepoint register so a lane can name what it passes
+   through. */
+export async function ensureCorridorData() {
+  await Promise.all([ensureTariffs(), ensureGeo()]);
+}
+
+function normalizeName(value: string) {
+  return (
+    String(value ?? "")
+      .toLowerCase()
+      .replace(/[^a-z0-9\s]/g, " ")
+      /* Generic geography words only. "Cape", "Good" and "Hope" are the name of
+       the Cape of Good Hope, not noise, and stripping them left it unfindable. */
+      .replace(/\b(the|strait|straits|canal|of|passage)\b/g, " ")
+      .replace(/\s+/g, " ")
+      .trim()
+  );
+}
+
+/* Which lanes depend on a chokepoint. The route table says, for each origin
+   region and destination, the chokepoints in transit order; inverting it turns
+   "Suez is closed" into the list of corridors that closure actually reaches. */
+function lanesThrough(chokepointId: string) {
+  const out: { region: string; destination: string; basis: string; origins: string[] }[] = [];
+  for (const [region, byDestination] of Object.entries(ROUTE_TABLE as any)) {
+    for (const [destination, ids] of Object.entries(byDestination as any)) {
+      if ((ids as string[]).includes(chokepointId)) {
+        out.push({
+          region,
+          destination,
+          basis: "standard routing",
+          origins: (REGIONS as any)[region] ?? [],
+        });
+      }
+    }
+  }
+  for (const [region, ids] of Object.entries(CAPE_ROUTE as any)) {
+    if ((ids as string[]).includes(chokepointId)) {
+      out.push({
+        region,
+        destination: "any Suez routing, diverted",
+        basis: "Cape of Good Hope diversion",
+        origins: (REGIONS as any)[region] ?? [],
+      });
+    }
+  }
+  return out;
 }
 
 export async function runCorridorTool(name: string, raw: Record<string, any>): Promise<ToolResult> {
@@ -262,8 +404,7 @@ export async function runCorridorTool(name: string, raw: Record<string, any>): P
             duty,
             saving_vs_priced: Math.max(0, (result.duty ?? 0) - duty),
             requirement: opportunity.requirement,
-            note:
-              "Conditional. This is the duty if the goods qualify; the priced figure above is the duty if they do not. State both.",
+            note: "Conditional. This is the duty if the goods qualify; the priced figure above is the duty if they do not. State both.",
           };
         }
 
@@ -325,30 +466,175 @@ export async function runCorridorTool(name: string, raw: Record<string, any>): P
 
       case "lookup_commodity": {
         const ctx = await mcsContextFor(String(input.question ?? ""));
-        if (!ctx) return { ok: true, provenance: MCS_SOURCE, rows: [], note: "No bundled commodity record matched." };
+        if (!ctx)
+          return {
+            ok: true,
+            provenance: MCS_SOURCE,
+            rows: [],
+            note: "No bundled commodity record matched.",
+          };
         return { ok: true, provenance: MCS_SOURCE, ...ctx };
       }
 
       case "trace_lane": {
+        await ensureGeo();
         const origin = String(input.origin).toUpperCase();
         const destination = String(input.destination ?? "USEC").toUpperCase();
+        if (!DESTINATIONS.some((d: any) => d.id === destination)) {
+          return {
+            ok: false,
+            error: `Corridor has no standard routing to ${destination}. It routes to ${DESTINATIONS.map((d: any) => `${d.id} (${d.label})`).join(", ")}.`,
+          };
+        }
         const lane = blankLane({
           origin,
           product: String(input.product ?? "shipment"),
           destination,
         });
         lane.route = routeFor(origin, destination, { viaCape: input.via_cape === true });
+
+        /* Resolved records, not bare ids. The model cannot cite "chokepoint4". */
+        const chokepoints = (lane.route?.chokepoints ?? []).map((id: string) => {
+          const c = chokepointById(id);
+          return c
+            ? {
+                id,
+                name: c.name,
+                lat: c.lat,
+                lon: c.lon,
+                vessels_per_year: c.vessels ?? null,
+                industries: c.industries ?? [],
+              }
+            : { id, name: null, note: "Not in the bundled chokepoint register." };
+        });
+
         return {
           ok: true,
-          provenance: LANE_SOURCE,
+          provenance: `${LANE_SOURCE}; ${CHOKEPOINT_SOURCE}`,
           origin: countryName(origin),
           destination,
+          destination_port: (PORTS as any)[destination] ?? null,
+          routing_basis:
+            lane.route?.basis === "cape"
+              ? "Cape of Good Hope diversion, in place of the standard Suez routing"
+              : lane.route?.basis === "unknown"
+                ? "No standard routing on file for this origin"
+                : "Standard routing",
           summary: routeSummary(lane),
           stops: laneStops(lane),
-          chokepoints: lane.route?.chokepoints ?? [],
+          chokepoints,
           exposure: laneExposure(lane),
           known_destinations: DESTINATIONS,
           origin_port: (PORTS as any)[origin] ?? null,
+        };
+      }
+
+      case "chokepoint_profile": {
+        await ensureGeo();
+        const all: any[] = (GEO as any).chokepoints?.chokepoints ?? [];
+        const register = (GEO as any).chokepoints ?? {};
+        const query = String(input.chokepoint ?? "").trim();
+
+        /* A register that failed to load is a different thing from a world
+           with no chokepoints in it, and the model must not read one as the
+           other. */
+        if (!all.length) {
+          return {
+            ok: false,
+            error: "The chokepoint register did not load, so no chokepoint can be profiled.",
+          };
+        }
+
+        if (!query) {
+          return {
+            ok: true,
+            provenance: CHOKEPOINT_SOURCE,
+            source_url: register.sourceUrl ?? null,
+            note: register.note ?? null,
+            chokepoints: all.map((c) => ({ id: c.id, name: c.name, vessels_per_year: c.vessels })),
+          };
+        }
+
+        const needle = normalizeName(query);
+        const match =
+          all.find((c) => c.id === query) ??
+          all.find((c) => normalizeName(c.name) === needle) ??
+          all.find((c) => needle && normalizeName(c.name).includes(needle)) ??
+          all.find((c) => needle && needle.includes(normalizeName(c.name)));
+
+        if (!match) {
+          return {
+            ok: false,
+            error: `No chokepoint matching "${query}".`,
+            known: all.map((c) => c.name),
+          };
+        }
+
+        const lanes = lanesThrough(match.id);
+        return {
+          ok: true,
+          provenance: CHOKEPOINT_SOURCE,
+          source_url: register.sourceUrl ?? null,
+          status_note:
+            register.note ??
+            "Traffic composition only. Current transit status must be established by search.",
+          chokepoint: {
+            id: match.id,
+            name: match.name,
+            lat: match.lat,
+            lon: match.lon,
+            vessels_per_year: match.vessels ?? null,
+            container: match.container ?? null,
+            tanker: match.tanker ?? null,
+            dry_bulk: match.dryBulk ?? null,
+            industries: match.industries ?? [],
+          },
+          lanes_through: lanes,
+          diversion_available:
+            match.id === CP.suez || match.id === CP.babElMandeb
+              ? "Lanes that transit Suez divert round the Cape of Good Hope when the Red Sea closes. Re-run trace_lane with via_cape set to get the diverted routing."
+              : null,
+        };
+      }
+
+      case "infrastructure_coverage": {
+        const register: any = await loadGisRegister();
+        if (!register) {
+          return { ok: false, error: "The geodatabase register is not available." };
+        }
+        const topic = String(input.topic ?? "")
+          .trim()
+          .toLowerCase();
+        const layers: any[] = register.layers ?? [];
+        const selected = topic
+          ? layers.filter(
+              (l) =>
+                String(l.name ?? "")
+                  .toLowerCase()
+                  .includes(topic) ||
+                String(l.description ?? "")
+                  .toLowerCase()
+                  .includes(topic),
+            )
+          : layers;
+
+        return {
+          ok: true,
+          provenance: GIS_SOURCE,
+          dataset: {
+            title: register.dataset?.title ?? null,
+            publisher: register.dataset?.publisher ?? null,
+            doi: register.dataset?.doi ?? null,
+            published: register.dataset?.pubdate ?? null,
+          },
+          coverage: "Africa",
+          layer_count: layers.length,
+          matched: selected.length,
+          layers: selected.map((l) => ({ name: l.name, description: l.description })),
+          constraint:
+            gisCaveat() ??
+            "Metadata only. State which layers exist and what they carry, and cite the DOI. Never quote a coordinate, facility count or capacity from this register.",
+          note: register.note ?? null,
         };
       }
 
